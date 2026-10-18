@@ -1,0 +1,47 @@
+# Материалы организаторов кейса (в корне) — не публикуем
+/*.pdf
+/*.pptx
+
+# Документы планирования — хранятся локально, не публикуем
+/docs/
+
+# Claude Code: все связанные с Claude файлы не коммитим
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+.mcp.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node / фронтенд
+node_modules/
+dist/
+build/
+.vite/
+
+# Окружение и секреты
+.env
+.env.*
+!.env.example
+
+# Данные, бэкапы, веса моделей
+backups/
+*.dump
+*.sql.gz
+models/
+*.gguf
+*.safetensors
+
+# IDE / ОС
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
