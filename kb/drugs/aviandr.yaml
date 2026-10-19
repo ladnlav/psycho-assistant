@@ -1,0 +1,19 @@
+# Заполняется ТОЛЬКО по инструкции из ГРЛС (владелец — Савва). Ничего не додумывать.
+id: aviandr
+trade_name: "Авиандр"
+inn: "маритупирдин"
+registered_rf: true
+status: draft
+atc: null                        # TODO(Савва)
+
+dosage_forms:
+  - "таблетки, покрытые плёночной оболочкой, 20 мг"   # с упаковки на слайде sponsor_deck_aviandr — сверить с ГРЛС
+
+indications: []          # TODO: [{icd10: "F41.1", text: "..."}]
+contraindications: []    # TODO: [{code: "pregnancy", text: "...", check: "patient.pregnant == True"}]
+caution: []              # TODO: «с осторожностью»
+dosing: {}               # TODO: {start_mg: , max_mg: , frequency: , duration: }
+interactions: []         # TODO: [{with: "...", effect: "...", severity: contraindicated|caution}]
+adverse_events: []       # TODO: [{term: "...", frequency: "часто", stop_drug: false}]
+
+sources: [grls_aviandr, sponsor_deck_aviandr]

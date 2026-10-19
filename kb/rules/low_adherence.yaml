@@ -1,0 +1,8 @@
+id: low_adherence
+title_ru: "Низкая приверженность: приём < 80% дней за неделю"
+level: medium
+status: draft
+# pdc_7d = доля завершённых дней из последних 7 с отметкой «принял»; None — нет назначения или < 3 дней.
+when: "pdc_7d < 0.8"
+actions: [notify_doctor, remind_patient]
+sources: [grls_aviandr]

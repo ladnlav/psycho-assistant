@@ -1,0 +1,12 @@
+id: phq9_severe
+title_ru: "Тяжёлая депрессивная симптоматика по PHQ-9 (≥ 20)"
+level: high
+status: draft
+when: "phq9.total >= 20"
+actions: [notify_doctor]
+propose:
+  - kind: referral
+    to: psychiatrist
+    level: mandatory
+    reason_ru: "Тяжёлая депрессивная симптоматика требует ведения психиатром"
+sources: [kroenke2001_phq9, kr_depression]

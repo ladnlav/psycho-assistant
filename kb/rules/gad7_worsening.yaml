@@ -1,0 +1,8 @@
+id: gad7_worsening
+title_ru: "Клинически значимое ухудшение по GAD-7"
+level: high
+status: draft
+# Рост с прошлого измерения не меньше минимальной клинически значимой разницы (mcid из шкалы).
+when: "gad7.n >= 2 and gad7.delta_prev >= gad7.mcid"
+actions: [notify_doctor]
+sources: [toussaint2020_gad7_mcid, jacobson1991_rci]

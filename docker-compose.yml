@@ -1,0 +1,70 @@
+name: compass
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-compass}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-compass}
+      POSTGRES_DB: ${POSTGRES_DB:-compass}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-compass}"]
+      interval: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-compass}:${POSTGRES_PASSWORD:-compass}@db:5432/${POSTGRES_DB:-compass}
+      KB_DIR: /kb
+      ML_URL: http://ml:8001
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      SEED_PASSWORD: ${SEED_PASSWORD:-}
+    volumes:
+      - ./kb:/kb:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  ml:
+    build: ./ml
+    environment:
+      LLM_BASE_URL: ${LLM_BASE_URL_DOCKER:-http://host.docker.internal:11434/v1}
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:7b}
+      LLM_API_KEY: ${LLM_API_KEY:-ollama}
+    ports:
+      - "8001:8001"
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"   # порт 80 на хосте занят sharelatex
+    depends_on:
+      - backend
+
+  # Локальная LLM в контейнере (нужна NVIDIA GPU): docker compose --profile llm up -d ollama
+  # и LLM_BASE_URL_DOCKER=http://ollama:11434/v1
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["llm"]
+    volumes:
+      - ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  pgdata:
+  ollama:

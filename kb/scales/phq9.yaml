@@ -1,0 +1,46 @@
+id: phq9
+name: PHQ-9
+title_ru: "Опросник здоровья пациента (PHQ-9)"
+rater: patient
+status: draft
+schedule_days: 14
+
+instruction_en: "Over the last 2 weeks, how often have you been bothered by any of the following problems?"
+instruction_ru: null     # TODO(Савва): официальный русский текст валидированной версии
+
+options:
+  - { value: 0, label_en: "Not at all", label_ru: null }
+  - { value: 1, label_en: "Several days", label_ru: null }
+  - { value: 2, label_en: "More than half the days", label_ru: null }
+  - { value: 3, label_en: "Nearly every day", label_ru: null }
+
+items:
+  - { id: item1, text_en: "Little interest or pleasure in doing things", text_ru: null }
+  - { id: item2, text_en: "Feeling down, depressed, or hopeless", text_ru: null }
+  - { id: item3, text_en: "Trouble falling or staying asleep, or sleeping too much", text_ru: null }
+  - { id: item4, text_en: "Feeling tired or having little energy", text_ru: null }
+  - { id: item5, text_en: "Poor appetite or overeating", text_ru: null }
+  - { id: item6, text_en: "Feeling bad about yourself — or that you are a failure or have let yourself or your family down", text_ru: null }
+  - { id: item7, text_en: "Trouble concentrating on things, such as reading the newspaper or watching television", text_ru: null }
+  - { id: item8, text_en: "Moving or speaking so slowly that other people could have noticed? Or the opposite — being so fidgety or restless that you have been moving around a lot more than usual", text_ru: null }
+  - { id: item9, text_en: "Thoughts that you would be better off dead or of hurting yourself in some way", text_ru: null }
+
+severity:
+  - { min: 0,  max: 4,  level: minimal,           label_ru: "минимальная депрессия" }
+  - { min: 5,  max: 9,  level: mild,              label_ru: "лёгкая депрессия" }
+  - { min: 10, max: 14, level: moderate,          label_ru: "умеренная депрессия" }
+  - { min: 15, max: 19, level: moderately_severe, label_ru: "умеренно тяжёлая депрессия" }
+  - { min: 20, max: 27, level: severe,            label_ru: "тяжёлая депрессия" }
+
+mcid: 5                  # lowe2004_phq9_mcid
+
+license:
+  type: free
+  holder: Pfizer
+  source: phqscreeners_license
+
+validation_ru:
+  status: todo
+  source: null
+
+sources: [kroenke2001_phq9, lowe2004_phq9_mcid]

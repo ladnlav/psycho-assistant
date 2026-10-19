@@ -23,6 +23,7 @@ venv/
 # Node / фронтенд
 node_modules/
 dist/
+*.tsbuildinfo
 build/
 .vite/
 
@@ -30,6 +31,9 @@ build/
 .env
 .env.*
 !.env.example
+
+# Результаты прогонов оценки LLM
+ml/eval/runs/
 
 # Данные, бэкапы, веса моделей
 backups/

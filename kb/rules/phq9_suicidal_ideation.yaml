@@ -1,0 +1,12 @@
+id: phq9_suicidal_ideation
+title_ru: "Мысли о смерти или самоповреждении (PHQ-9, пункт 9)"
+level: critical
+status: draft            # TODO(Савва): сверить порог и действия с КР
+when: "phq9.item9 >= 1"
+actions: [notify_doctor, patient_safety_screen]
+propose:
+  - kind: referral
+    to: psychiatrist
+    level: mandatory
+    reason_ru: "Положительный ответ на пункт 9 PHQ-9 требует оценки суицидального риска психиатром"
+sources: [kroenke2001_phq9, kr_depression]

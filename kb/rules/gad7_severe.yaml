@@ -1,0 +1,12 @@
+id: gad7_severe
+title_ru: "Выраженная тревога по GAD-7 (≥ 15)"
+level: high
+status: draft
+when: "gad7.total >= 15"
+actions: [notify_doctor]
+propose:
+  - kind: referral
+    to: psychiatrist
+    level: desirable
+    reason_ru: "Выраженная тревога: желательна консультация психиатра для уточнения диагноза и тактики"
+sources: [spitzer2006_gad7, kr_gad]

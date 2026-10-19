@@ -1,0 +1,7 @@
+id: serious_adverse_event
+title_ru: "Серьёзное нежелательное явление на фоне терапии"
+level: critical
+status: draft
+when: "ae.serious_7d > 0"
+actions: [notify_doctor]
+sources: [grls_aviandr]

@@ -1,0 +1,65 @@
+# Реестр источников. Шкалы, правила и препараты ссылаются на id отсюда.
+# verified: true — метаданные сверены (DOI через Crossref, документ открыт и прочитан).
+# Клинические рекомендации и инструкция заполняются Саввой.
+
+spitzer2006_gad7:
+  type: paper
+  title: "Spitzer RL, Kroenke K, Williams JBW, Löwe B. A Brief Measure for Assessing Generalized Anxiety Disorder: The GAD-7. Arch Intern Med. 2006;166(10):1092–1097."
+  url: https://doi.org/10.1001/archinte.166.10.1092
+  verified: true
+
+kroenke2001_phq9:
+  type: paper
+  title: "Kroenke K, Spitzer RL, Williams JBW. The PHQ-9: validity of a brief depression severity measure. J Gen Intern Med. 2001;16(9):606–613."
+  url: https://doi.org/10.1046/j.1525-1497.2001.016009606.x
+  verified: true
+
+jacobson1991_rci:
+  type: paper
+  title: "Jacobson NS, Truax P. Clinical significance: a statistical approach to defining meaningful change in psychotherapy research. J Consult Clin Psychol. 1991;59(1):12–19."
+  url: https://doi.org/10.1037/0022-006X.59.1.12
+  verified: true
+
+toussaint2020_gad7_mcid:
+  type: paper
+  title: "Toussaint A, Hüsing P, Gumz A, et al. Sensitivity to change and minimal clinically important difference of the 7-item Generalized Anxiety Disorder Questionnaire (GAD-7). J Affect Disord. 2020;265:395–401."
+  url: https://doi.org/10.1016/j.jad.2020.01.032
+  verified: true
+  note: "Порог MCID = 4 балла — сверить с текстом статьи"
+
+lowe2004_phq9_mcid:
+  type: paper
+  title: "Löwe B, Unützer J, Callahan CM, Perkins AJ, Kroenke K. Monitoring Depression Treatment Outcomes With the Patient Health Questionnaire-9. Med Care. 2004;42(12):1194–1201."
+  url: https://doi.org/10.1097/00005650-200412000-00006
+  verified: true
+  note: "Порог MCID = 5 баллов — сверить с текстом статьи"
+
+phqscreeners_license:
+  type: license
+  title: "PHQ/GAD-7 screeners (Pfizer): разрешение на воспроизведение и перевод не требуется"
+  url: https://www.phqscreeners.com
+  verified: false
+
+kr_gad:
+  type: guideline
+  title: "TODO(Савва): КР Минздрава «Генерализованное тревожное расстройство» — актуальная версия, ID в рубрикаторе, год"
+  url: https://cr.minzdrav.gov.ru
+  verified: false
+
+kr_depression:
+  type: guideline
+  title: "TODO(Савва): КР Минздрава «Депрессивный эпизод, рекуррентное депрессивное расстройство» — актуальная версия"
+  url: https://cr.minzdrav.gov.ru
+  verified: false
+
+grls_aviandr:
+  type: instruction
+  title: "TODO(Савва): Инструкция по медицинскому применению ЛП «Авиандр» (маритупирдин), ГРЛС — номер РУ и дата"
+  url: https://grls.rosminzdrav.ru
+  verified: false
+
+sponsor_deck_aviandr:
+  type: other
+  title: "Презентация «Клинический компас», Авинейро / ГК ХимРар, 15.10.2026 (материалы кейса)"
+  verified: true
+  note: "Не заменяет инструкцию — только для ориентира"

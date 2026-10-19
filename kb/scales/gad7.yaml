@@ -1,0 +1,43 @@
+id: gad7
+name: GAD-7
+title_ru: "Шкала генерализованного тревожного расстройства (GAD-7)"
+rater: patient
+status: draft            # draft → validated после проверки Саввой
+schedule_days: 14
+
+instruction_en: "Over the last 2 weeks, how often have you been bothered by the following problems?"
+instruction_ru: null     # TODO(Савва): официальный русский текст валидированной версии
+
+options:
+  - { value: 0, label_en: "Not at all", label_ru: null }
+  - { value: 1, label_en: "Several days", label_ru: null }
+  - { value: 2, label_en: "More than half the days", label_ru: null }
+  - { value: 3, label_en: "Nearly every day", label_ru: null }
+
+items:
+  - { id: item1, text_en: "Feeling nervous, anxious, or on edge", text_ru: null }
+  - { id: item2, text_en: "Not being able to stop or control worrying", text_ru: null }
+  - { id: item3, text_en: "Worrying too much about different things", text_ru: null }
+  - { id: item4, text_en: "Trouble relaxing", text_ru: null }
+  - { id: item5, text_en: "Being so restless that it is hard to sit still", text_ru: null }
+  - { id: item6, text_en: "Becoming easily annoyed or irritable", text_ru: null }
+  - { id: item7, text_en: "Feeling afraid, as if something awful might happen", text_ru: null }
+
+severity:
+  - { min: 0,  max: 4,  level: minimal,  label_ru: "минимальная тревога" }
+  - { min: 5,  max: 9,  level: mild,     label_ru: "лёгкая тревога" }
+  - { min: 10, max: 14, level: moderate, label_ru: "умеренная тревога" }
+  - { min: 15, max: 21, level: severe,   label_ru: "выраженная тревога" }
+
+mcid: 4                  # минимальная клинически значимая разница, toussaint2020_gad7_mcid
+
+license:
+  type: free
+  holder: Pfizer
+  source: phqscreeners_license
+
+validation_ru:
+  status: todo           # TODO(Савва): публикация о валидации русской версии
+  source: null
+
+sources: [spitzer2006_gad7, toussaint2020_gad7_mcid]
