@@ -93,6 +93,13 @@ class DiaryOut(ORM):
     note: str | None
 
 
+class ScaleSchedule(BaseModel):
+    scale_id: str
+    last_taken_at: datetime | None
+    next_due: date | None
+    due: bool
+
+
 class AdverseEventIn(BaseModel):
     description: str
     severity: Literal["mild", "moderate", "severe"]

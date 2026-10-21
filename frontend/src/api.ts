@@ -31,6 +31,7 @@ export interface Scale {
 }
 
 export interface ScaleResult { id: string; scale_id: string; total: number; severity: string; created_at: string }
+export interface ScaleSchedule { scale_id: string; last_taken_at: string | null; next_due: string | null; due: boolean }
 export interface SafetyScreen { message_ru: string; contacts: { title_ru: string; phone: string }[] }
 export interface ScaleSubmitResult { result: ScaleResult; severity_label_ru: string; safety: SafetyScreen | null }
 

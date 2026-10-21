@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert, Badge, Button, Card, Group, Radio, Stack, Text, Title } from '@mantine/core';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
 import { api, type Scale, type ScaleSubmitResult } from '../../api';
 import { SafetyModal } from '../../components/SafetyModal';
@@ -12,8 +12,10 @@ export function ScalePage() {
   const scale = scales?.find((s) => s.id === scaleId);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [safetyClosed, setSafetyClosed] = useState(false);
+  const qc = useQueryClient();
   const submit = useMutation({
     mutationFn: () => api<ScaleSubmitResult>(`/patient/scales/${scaleId}`, { body: { answers } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-schedule'] }),
   });
 
   if (!scale) return <Text>Загрузка…</Text>;
@@ -29,7 +31,7 @@ export function ScalePage() {
           </Title>
           <Badge size="lg" color={SEVERITY_COLOR[result.result.severity] ?? 'gray'}>{result.severity_label_ru}</Badge>
           <Text c="dimmed">Результат передан вашему врачу.</Text>
-          <Button component={Link} to="/patient">На главную</Button>
+          <Button component={Link} to="/patient" state={{ justDone: scale.id }}>На главную</Button>
         </Stack>
         <SafetyModal safety={safetyClosed ? null : result.safety} onClose={() => setSafetyClosed(true)} />
       </Card>

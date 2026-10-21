@@ -17,7 +17,7 @@ import { PatientCardPage } from './pages/doctor/PatientCardPage';
 import { PatientHome } from './pages/patient/PatientHome';
 import { ScalePage } from './pages/patient/ScalePage';
 
-const theme = createTheme({ primaryColor: 'violet', defaultRadius: 'md' });
+const theme = createTheme({ primaryColor: 'violet', defaultRadius: 'md', respectReducedMotion: true });
 const queryClient = new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: true } } });
 
 function AppRoutes() {

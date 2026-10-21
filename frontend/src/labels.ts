@@ -21,6 +21,13 @@ export const SEVERITY_COLOR: Record<string, string> = {
   severe: 'red',
 };
 
+/** Выраженность побочного эффекта, как её выбирает пациент. */
+export const AE_SEVERITY: Record<string, string> = {
+  mild: 'слабо',
+  moderate: 'умеренно',
+  severe: 'сильно',
+};
+
 export const SPECIALTY: Record<string, string> = {
   therapist: 'терапевт',
   neurologist: 'невролог',
