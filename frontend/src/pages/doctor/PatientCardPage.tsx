@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Alert as MAlert, Anchor, Badge, Button, Card, Group, NumberInput, SimpleGrid, Stack, Text, TextInput,
-  Title } from '@mantine/core';
+import { Alert as MAlert, Anchor, Badge, Button, Card, Group, NumberInput, SimpleGrid, Stack, Text, Textarea,
+  TextInput, Title } from '@mantine/core';
 import { LineChart } from '@mantine/charts';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
-import { api, type Alert, type PatientCard, type Recommendation } from '../../api';
+import { api, type Alert, type PatientCard, type PrescriptionCheck, type Recommendation } from '../../api';
 import { AlertLevelBadge, ReferralBadge } from '../../components/Badges';
 import { Chat } from '../../components/Chat';
+import { DrugWarnings } from '../../components/DrugWarnings';
 import { Sources } from '../../components/Sources';
 import { ALERT_LEVEL, formatDate, formatDateTime } from '../../labels';
 
@@ -87,24 +88,46 @@ function RecommendationItem({ rec, patientId }: { rec: Recommendation; patientId
   );
 }
 
+const AVIANDR = { drug_id: 'aviandr', drug_name: 'Авиандр' };
+
 function PrescribeForm({ patientId }: { patientId: string }) {
   const qc = useQueryClient();
   const [dose, setDose] = useState<number | string>('');
   const [frequency, setFrequency] = useState('');
+  const [acked, setAcked] = useState<Record<string, boolean>>({});
+  const [note, setNote] = useState('');
+  // Пункты инструкции показываем сразу, ещё до нажатия «Назначить».
+  const { data: check } = useQuery({ queryKey: ['rx-check', patientId, AVIANDR.drug_id],
+    queryFn: () => api<PrescriptionCheck>(`/doctor/patients/${patientId}/prescriptions/check`, { body: AVIANDR }) });
+  const warnings = check?.warnings ?? [];
+  const needReason = warnings.some((w) => w.requires_reason);
+  const ready = !!check && warnings.every((w) => acked[w.id]) && (!needReason || note.trim() !== '');
   const create = useMutation({
     mutationFn: () => api(`/doctor/patients/${patientId}/prescriptions`, { body: {
-      drug_id: 'aviandr', drug_name: 'Авиандр', dose_mg: dose === '' ? null : Number(dose), frequency: frequency || null } }),
+      ...AVIANDR, dose_mg: dose === '' ? null : Number(dose), frequency: frequency || null,
+      acknowledged_warnings: warnings.filter((w) => acked[w.id]).map((w) => w.id), override_note: note.trim() || null } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['card', patientId] }),
+    onError: () => qc.invalidateQueries({ queryKey: ['rx-check', patientId] }), // данные пациента могли измениться
   });
   return (
     <Stack gap="xs">
-      {/* TODO(Влад/Савва): режим дозирования, противопоказания и взаимодействия — из kb/drugs/aviandr.yaml (ГРЛС) */}
-      <MAlert color="gray" variant="light">Справка по инструкции появится после заполнения kb/drugs/aviandr.yaml из ГРЛС.</MAlert>
+      {check?.notice_ru && <MAlert color="gray" variant="light">{check.notice_ru}</MAlert>}
+      {warnings.length > 0 && (
+        <>
+          <Text size="sm" fw={500}>Перед назначением отметьте каждый пункт инструкции</Text>
+          <DrugWarnings warnings={warnings} acked={acked} onAck={(id, v) => setAcked((a) => ({ ...a, [id]: v }))} />
+          {needReason && (
+            <Textarea label="Почему назначаете, несмотря на противопоказание" required value={note}
+              onChange={(e) => setNote(e.currentTarget.value)} />
+          )}
+        </>
+      )}
       <Group align="flex-end">
         <NumberInput label="Доза, мг" value={dose} onChange={setDose} w={110} />
         <TextInput label="Режим" placeholder="по инструкции" value={frequency} onChange={(e) => setFrequency(e.currentTarget.value)} />
-        <Button loading={create.isPending} onClick={() => create.mutate()}>Назначить Авиандр</Button>
+        <Button disabled={!ready} loading={create.isPending} onClick={() => create.mutate()}>Назначить Авиандр</Button>
       </Group>
+      {create.isError && <MAlert color="red" variant="light">{(create.error as Error).message}</MAlert>}
     </Stack>
   );
 }

@@ -1,4 +1,4 @@
-import type { AlertLevel, ReferralLevel } from './api';
+import type { AlertLevel, DrugWarning, ReferralLevel } from './api';
 
 // Визуальное различение — обязательное условие кейса:
 // уровни алертов, «обязательно» / «желательно» и предупреждения безопасности не должны путаться.
@@ -19,6 +19,19 @@ export const SEVERITY_COLOR: Record<string, string> = {
   moderate: 'yellow',
   moderately_severe: 'orange',
   severe: 'red',
+};
+
+/** Пункты инструкции при назначении: свой вид (полоса слева и треугольник), не похожий на алерты и направления. */
+export const DRUG_WARNING_KIND: Record<DrugWarning['kind'], { label: string; color: string }> = {
+  contraindication: { label: 'Противопоказание', color: 'red' },
+  caution: { label: 'С осторожностью', color: 'orange' },
+  interaction: { label: 'Взаимодействие', color: 'grape' },
+};
+
+export const DRUG_WARNING_STATUS: Record<DrugWarning['status'], string> = {
+  fired: 'Найдено в карточке пациента',
+  unchecked: 'Не хватает данных',
+  manual: 'Проверьте у пациента',
 };
 
 /** Выраженность побочного эффекта, как её выбирает пациент. */

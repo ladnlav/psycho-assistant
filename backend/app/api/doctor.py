@@ -10,13 +10,14 @@ from app.kb import KnowledgeBase, get_kb
 from app.models import (AdverseEvent, Alert, DiaryEntry, DoctorPatientLink, Invite, MedicationIntake, Message,
                         PatientProfile, Prescription, Recommendation, Referral, ScaleResponse, User, utcnow)
 from app.schemas import (AdverseEventOut, AlertOut, Decision, DiaryOut, IntakeOut, InviteCreate, InviteOut,
-                         MessageIn, MessageOut, PatientCard, PatientSummary, PrescriptionIn, PrescriptionOut,
-                         RecommendationOut, ScaleResult, ScaleSubmit, ScaleSubmitResult)
+                         MessageIn, MessageOut, PatientCard, PatientSummary, PrescriptionCheck, PrescriptionIn,
+                         PrescriptionOut, RecommendationOut, ScaleResult, ScaleSubmit, ScaleSubmitResult)
 from app.security import ensure_own_patient, require_doctor
 from app.services.alerts import hub
 from app.services.audit import audit
 from app.services.clinical import record_scale
 from app.services.context import pdc_7d
+from app.services.drug_checks import check_prescription
 
 router = APIRouter(prefix="/api/doctor", tags=["doctor"])
 
@@ -97,21 +98,41 @@ def patient_card(patient_id: uuid.UUID, doctor: User = Depends(require_doctor), 
     )
 
 
-@router.post("/patients/{patient_id}/prescriptions", response_model=PrescriptionOut)
-def prescribe(patient_id: uuid.UUID, body: PrescriptionIn, doctor: User = Depends(require_doctor),
-              db: Session = Depends(get_db), kb: KnowledgeBase = Depends(get_kb)):
-    """Назначение делает только врач. TODO(Влад): проверка противопоказаний/взаимодействий по kb/drugs
-    до сохранения — как предупреждение, решение остаётся за врачом."""
-    ensure_own_patient(db, doctor, patient_id)
+def _ensure_registered(kb: KnowledgeBase, body: PrescriptionIn) -> None:
     if body.drug_id is not None:
         drug = kb.drugs.get(body.drug_id)
         if drug is None or not drug.registered_rf:
             raise HTTPException(422, "Препарат не найден среди зарегистрированных в РФ (kb/drugs)")
+
+
+@router.post("/patients/{patient_id}/prescriptions/check", response_model=PrescriptionCheck)
+def check_prescription_endpoint(patient_id: uuid.UUID, body: PrescriptionIn, doctor: User = Depends(require_doctor),
+                                db: Session = Depends(get_db), kb: KnowledgeBase = Depends(get_kb)):
+    """Пункты инструкции, которые врач должен учесть до назначения. Ничего не сохраняет."""
+    ensure_own_patient(db, doctor, patient_id)
+    _ensure_registered(kb, body)
+    return check_prescription(db, kb, patient_id, body)
+
+
+@router.post("/patients/{patient_id}/prescriptions", response_model=PrescriptionOut)
+def prescribe(patient_id: uuid.UUID, body: PrescriptionIn, doctor: User = Depends(require_doctor),
+              db: Session = Depends(get_db), kb: KnowledgeBase = Depends(get_kb)):
+    """Назначение делает только врач. Пункты инструкции он должен учесть, а при противопоказании,
+    найденном в карточке, — написать обоснование; всё это пишется в аудит."""
+    ensure_own_patient(db, doctor, patient_id)
+    _ensure_registered(kb, body)
+    result = check_prescription(db, kb, patient_id, body)
+    if any(w.id not in body.acknowledged_warnings for w in result.warnings):
+        raise HTTPException(409, "Есть пункты инструкции, которые нужно учесть до назначения — обновите проверку")
+    if any(w.requires_reason for w in result.warnings) and not (body.override_note or "").strip():
+        raise HTTPException(422, "Назначение при противопоказании требует обоснования врача")
     rx = Prescription(patient_id=patient_id, doctor_id=doctor.id, drug_id=body.drug_id, drug_name=body.drug_name,
                       dose_mg=body.dose_mg, frequency=body.frequency, start_date=body.start_date or utcnow().date())
     db.add(rx)
     db.flush()
-    audit(db, doctor.id, "prescription.created", "prescription", rx.id, body.model_dump(mode="json"))
+    details = body.model_dump(mode="json") | {
+        "checked": result.checked, "warnings": [{"id": w.id, "kind": w.kind, "status": w.status} for w in result.warnings]}
+    audit(db, doctor.id, "prescription.created", "prescription", rx.id, details)
     db.commit()
     return rx
 

@@ -115,6 +115,32 @@ class Rule(BaseModel):
         return self
 
 
+# Имена, доступные в `when` пунктов инструкции (kb/README.md → «Препараты»).
+DRUG_CHECK_NAMES = {"age", "sex", "dx", "taking"}
+
+
+class DrugCheck(BaseModel):
+    """Пункт инструкции из ГРЛС: противопоказание, «с осторожностью» или взаимодействие.
+    Без `when` пункт не проверяется автоматически — врач подтверждает его сам."""
+    id: str
+    text_ru: str
+    when: str | None = None
+    severity: Literal["contraindicated", "caution"] | None = None  # только для взаимодействий
+
+    @model_validator(mode="after")
+    def _check_expr(self) -> "DrugCheck":
+        if self.when is None:
+            return self
+        try:
+            tree = ast.parse(self.when, mode="eval")
+        except SyntaxError as e:
+            raise ValueError(f"{self.id}: синтаксическая ошибка в when: {e}") from e
+        unknown = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)} - DRUG_CHECK_NAMES
+        if unknown:
+            raise ValueError(f"{self.id}: в when неизвестные имена {sorted(unknown)}, доступны {sorted(DRUG_CHECK_NAMES)}")
+        return self
+
+
 class Drug(BaseModel):
     id: str
     trade_name: str
@@ -124,12 +150,25 @@ class Drug(BaseModel):
     atc: str | None = None
     dosage_forms: list[str] = []
     indications: list[dict[str, Any]] = []
-    contraindications: list[dict[str, Any]] = []
-    caution: list[dict[str, Any]] = []
+    contraindications: list[DrugCheck] = []
+    caution: list[DrugCheck] = []
     dosing: dict[str, Any] = {}
-    interactions: list[dict[str, Any]] = []
+    interactions: list[DrugCheck] = []
     adverse_events: list[dict[str, Any]] = []
     sources: list[str] = []
+
+    @property
+    def has_checks(self) -> bool:
+        return bool(self.contraindications or self.caution or self.interactions)
+
+    @model_validator(mode="after")
+    def _check_items(self) -> "Drug":
+        ids = [c.id for c in (*self.contraindications, *self.caution, *self.interactions)]
+        if dup := {i for i in ids if ids.count(i) > 1}:
+            raise ValueError(f"{self.id}: повторяются id пунктов инструкции {sorted(dup)}")
+        if missing := [c.id for c in self.interactions if c.severity is None]:
+            raise ValueError(f"{self.id}: у взаимодействий {missing} не указан severity (contraindicated | caution)")
+        return self
 
 
 class SafetyContact(BaseModel):

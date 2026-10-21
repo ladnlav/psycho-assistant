@@ -120,6 +120,25 @@ class PrescriptionIn(BaseModel):
     dose_mg: float | None = None
     frequency: str | None = None
     start_date: date | None = None
+    acknowledged_warnings: list[str] = Field([], description="id пунктов инструкции, которые врач учёл")
+    override_note: str | None = Field(None, description="обоснование врача, если у пациента есть противопоказание")
+
+
+class DrugWarning(BaseModel):
+    id: str
+    kind: Literal["contraindication", "caution", "interaction"]
+    status: Literal["fired", "manual", "unchecked"]  # найдено в карточке | проверить вручную | нет данных
+    text_ru: str
+    section_ru: str
+    detail_ru: str | None = None
+    requires_reason: bool = False
+    sources: list[str] = []
+
+
+class PrescriptionCheck(BaseModel):
+    checked: bool
+    notice_ru: str | None = None
+    warnings: list[DrugWarning] = []
 
 
 class PrescriptionOut(ORM):

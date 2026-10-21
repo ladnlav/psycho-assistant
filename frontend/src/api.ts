@@ -44,6 +44,11 @@ export interface Prescription {
   start_date: string; active: boolean;
 }
 export interface Intake { id: string; prescription_id: string; day: string; status: 'taken' | 'missed' }
+export interface DrugWarning {
+  id: string; kind: 'contraindication' | 'caution' | 'interaction'; status: 'fired' | 'manual' | 'unchecked';
+  text_ru: string; section_ru: string; detail_ru: string | null; requires_reason: boolean; sources: string[];
+}
+export interface PrescriptionCheck { checked: boolean; notice_ru: string | null; warnings: DrugWarning[] }
 
 export interface Alert {
   id: string; patient_id: string; rule_id: string; level: AlertLevel; title: string; sources: string[];
