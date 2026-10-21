@@ -6,7 +6,7 @@ status: draft
 schedule_days: 14
 
 instruction_en: "Over the last 2 weeks, how often have you been bothered by any of the following problems?"
-instruction_ru: null     # TODO(Савва): официальный русский текст валидированной версии
+instruction_ru: null     # TODO(Савва): перенести и сверить текст из zolotareva2023_phq9_ru, приложение, с. 121
 
 options:
   - { value: 0, label_en: "Not at all", label_ru: null }
@@ -39,8 +39,10 @@ license:
   holder: Pfizer
   source: phqscreeners_license
 
+# Русский текст — перевод А.А. Золотаревой (приложение статьи, с. 121). Чувствительность и специфичность
+# русской версии у пациентов терапевтов — pogosova2014_phq9_ru и rancans2018_phq9_lv.
 validation_ru:
-  status: todo
-  source: null
+  status: confirmed
+  source: zolotareva2023_phq9_ru
 
-sources: [kroenke2001_phq9, lowe2004_phq9_mcid]
+sources: [kroenke2001_phq9, lowe2004_phq9_mcid, zolotareva2023_phq9_ru, pogosova2014_phq9_ru, rancans2018_phq9_lv]

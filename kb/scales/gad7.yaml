@@ -6,7 +6,7 @@ status: draft            # draft → validated после проверки Са�
 schedule_days: 14
 
 instruction_en: "Over the last 2 weeks, how often have you been bothered by the following problems?"
-instruction_ru: null     # TODO(Савва): официальный русский текст валидированной версии
+instruction_ru: null     # TODO(Савва): перенести и сверить текст из zolotareva2023_gad7_ru, приложение, с. 39
 
 options:
   - { value: 0, label_en: "Not at all", label_ru: null }
@@ -36,8 +36,11 @@ license:
   holder: Pfizer
   source: phqscreeners_license
 
+# Русский текст — перевод А.А. Золотаревой (приложение статьи, с. 39). Клиническая проверка русской версии —
+# у пациентов врачей общей практики (vrublevska2022_gad7_lv) и с эпилепсией (zinchuk2021_gad7_epilepsy).
 validation_ru:
-  status: todo           # TODO(Савва): публикация о валидации русской версии
-  source: null
+  status: confirmed
+  source: zolotareva2023_gad7_ru
 
-sources: [spitzer2006_gad7, toussaint2020_gad7_mcid]
+sources: [spitzer2006_gad7, toussaint2020_gad7_mcid, zolotareva2023_gad7_ru, vrublevska2022_gad7_lv,
+          zinchuk2021_gad7_epilepsy]

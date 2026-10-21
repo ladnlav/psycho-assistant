@@ -36,9 +36,112 @@ lowe2004_phq9_mcid:
 
 phqscreeners_license:
   type: license
-  title: "PHQ/GAD-7 screeners (Pfizer): разрешение на воспроизведение и перевод не требуется"
-  url: https://www.phqscreeners.com
-  verified: false
+  title: "PHQ/GAD-7 screeners (Pfizer): разрешение на воспроизведение, перевод, показ и распространение не требуется"
+  url: https://www.phqscreeners.com/select-screener
+  verified: true
+  note: "Проверено 21.10.2026. PHQ-2 и GAD-2 — первые два вопроса PHQ-9 и GAD-7, PHQ-4 = PHQ-2 + GAD-2: те же пункты, отдельной лицензии нет"
+
+# --- Русские версии GAD-7 и PHQ-9 ---------------------------------------------------------------
+
+zolotareva2023_gad7_ru:
+  type: paper
+  title: "Золотарева А.А. Адаптация русскоязычной версии шкалы генерализованного тревожного расстройства (Generalized Anxiety Disorder-7). Консультативная психология и психотерапия. 2023;31(4):31–46."
+  url: https://doi.org/10.17759/cpp.2023310402
+  verified: true
+  note: "Перевод А.А. Золотаревой, текст шкалы — в приложении (с. 39). Общая популяция, n=1130, α=0,93, одно- и двухфакторная модели, r=0,82 с PHQ-9. Чувствительность и специфичность не изучались — автор советует осторожность в клинике. Статья CC BY-NC"
+
+zolotareva2023_phq9_ru:
+  type: paper
+  title: "Золотарева А.А. Диагностика депрессии: психометрическая оценка русскоязычной версии опросника здоровья пациента (PHQ-9). Клиническая и специальная психология. 2023;12(4):107–121."
+  url: https://doi.org/10.17759/cpse.2023120406
+  verified: true
+  note: "Прямой и обратный перевод с участием психиатра, текст — в приложении (с. 121). Общая популяция, n=1800, α=0,89, однофакторная структура. Клиническая валидизация — по pogosova2014_phq9_ru. Статья CC BY-NC"
+
+pogosova2014_phq9_ru:
+  type: paper
+  title: "Погосова Н.В., Довженко Т.В., Бабин А.Г., Курсаков А.А., Выгодин В.А. Русскоязычная версия опросников PHQ-2 и 9: чувствительность и специфичность при выявлении депрессии у пациентов общемедицинской амбулаторной практики. Кардиоваскулярная терапия и профилактика. 2014;13(3):18–24."
+  url: https://doi.org/10.15829/1728-8800-2014-3-18-24
+  verified: true
+  note: "193 пациента терапевтов, диагноз — психиатр по МКБ-10. PHQ-9 ≥ 10: чувствительность 68,9%, специфичность 93,3%; PHQ-2 ≥ 3: 66,2% и 87,4%. Собственный перевод авторов — текст сверить с zolotareva2023_phq9_ru (по аннотации)"
+
+rancans2018_phq9_lv:
+  type: paper
+  title: "Rancans E, Trapencieris M, Ivanovs R, Vrublevska J. Validity of the PHQ-9 and PHQ-2 to screen for depression in nationwide primary care population in Latvia. Ann Gen Psychiatry. 2018;17:33."
+  url: https://doi.org/10.1186/s12991-018-0203-5
+  verified: true
+  note: "Русская версия у пациентов врачей общей практики, эталон — MINI. PHQ-9 ≥ 8: чувствительность 0,79, специфичность 0,80; PHQ-2 ≥ 2: 0,79 и 0,67. Совет: сначала PHQ-2, при положительном — PHQ-9 (по аннотации)"
+
+vrublevska2022_gad7_lv:
+  type: paper
+  title: "Vrublevska J, Renemane L, Kivite-Urtane A, Rancans E. Validation of the generalized anxiety disorder scales (GAD-7 and GAD-2) in primary care settings in Latvia. Front Psychiatry. 2022;13:972628."
+  url: https://doi.org/10.3389/fpsyt.2022.972628
+  verified: true
+  note: "Русская версия у пациентов врачей общей практики, эталон — MINI. GAD-7 ≥ 7: чувствительность 73,3%, специфичность 84,1%, α=0,85; GAD-2 ≥ 2: 83,3% и 69,1% (по аннотации)"
+
+zinchuk2021_gad7_epilepsy:
+  type: paper
+  title: "Zinchuk M, Kustov G, Pashnin E, et al. Validation of the Generalized Anxiety Disorder-7 (GAD-7) in Russian people with epilepsy. Epilepsy Behav. 2021;123:108269."
+  url: https://doi.org/10.1016/j.yebeh.2021.108269
+  verified: true
+  note: "Клиническая выборка в России; оптимальный порог > 8 баллов для любого тревожного расстройства (по краткому резюме, полный текст не прочитан)"
+
+# --- Короткие версии: PHQ-2, GAD-2, PHQ-4 -------------------------------------------------------
+
+kroenke2003_phq2:
+  type: paper
+  title: "Kroenke K, Spitzer RL, Williams JBW. The Patient Health Questionnaire-2: validity of a two-item depression screener. Med Care. 2003;41(11):1284–1292."
+  url: https://doi.org/10.1097/01.MLR.0000093487.78664.3C
+  verified: true
+
+kroenke2007_gad2:
+  type: paper
+  title: "Kroenke K, Spitzer RL, Williams JBW, Monahan PO, Löwe B. Anxiety disorders in primary care: prevalence, impairment, comorbidity, and detection. Ann Intern Med. 2007;146(5):317–325."
+  url: https://doi.org/10.7326/0003-4819-146-5-200703060-00004
+  verified: true
+  note: "Первоисточник GAD-2"
+
+kroenke2009_phq4:
+  type: paper
+  title: "Kroenke K, Spitzer RL, Williams JBW, Löwe B. An ultra-brief screening scale for anxiety and depression: the PHQ-4. Psychosomatics. 2009;50(6):613–621."
+  url: https://doi.org/10.1176/appi.psy.50.6.613
+  verified: true
+
+zolotareva2024_phq4_ru:
+  type: paper
+  title: "Золотарева А.А., Костенко В.Ю., Лебедева А.А., Чумакова М.А. Скрининг тревоги и депрессии в общей популяции: адаптация опросника здоровья пациента-4 (PHQ-4) в России. Обозрение психиатрии и медицинской психологии им. В.М. Бехтерева. 2024;58(2):45–54."
+  url: https://doi.org/10.31363/2313-7053-2024-899
+  verified: true
+  note: "Общая популяция, n=2000, двухфакторная структура (тревога и депрессия), инвариантность по возрасту и др. (по аннотации)"
+
+# --- ASQ: скрининг суицидального риска (NIMH) -------------------------------------------------
+
+horowitz2012_asq:
+  type: paper
+  title: "Horowitz LM, Bridge JA, Teach SJ, et al. Ask Suicide-Screening Questions (ASQ): a brief instrument for the pediatric emergency department. Arch Pediatr Adolesc Med. 2012;166(12):1170."
+  url: https://doi.org/10.1001/archpediatrics.2012.1276
+  verified: true
+  note: "Исходная валидация у детей и подростков"
+
+horowitz2020_asq_adults:
+  type: paper
+  title: "Horowitz LM, Snyder DJ, Boudreaux ED, et al. Validation of the Ask Suicide-Screening Questions for adult medical inpatients: a brief tool for all ages. Psychosomatics. 2020;61(6):713–722."
+  url: https://doi.org/10.1016/j.psym.2020.04.008
+  verified: true
+  note: "Валидация у взрослых пациентов соматических стационаров"
+
+nimh_asq_tool:
+  type: other
+  title: "NIMH ASQ Toolkit: Suicide Risk Screening Tool (бланк для подростков и взрослых, версия 29.09.2025)"
+  url: https://www.nimh.nih.gov/research/research-conducted-at-nimh/asq-toolkit-materials
+  verified: true
+  note: "5 вопросов: 1–4 — скрининг; при любом «да» — вопрос 5 об остроте («прямо сейчас»). «Да» на 5 — острый положительный скрининг (немедленная оценка безопасности), «нет» на 5 — неострый положительный (краткая оценка безопасности). Бесплатно (страница NIMH); статус public domain на первоисточнике не найден"
+
+nimh_asq_ru:
+  type: other
+  title: "NIMH: «Методика для скрининга на риск самоубийства» — русский перевод ASQ (бланк 18.05.2017)"
+  url: https://www.nimh.nih.gov/sites/default/files/documents/research/research-conducted-at-nimh/asq-toolkit-materials/asqtranslations/asq-russian.pdf
+  verified: true
+  note: "Перевод NIMH, все 5 вопросов. Публикаций о валидации русской версии не найдено. Бланк старше английского 2025 г.: отказ отвечать считает положительным скринингом, телефоны помощи — американские (у нас — kb/safety.yaml)"
 
 kr_gad:
   type: guideline
