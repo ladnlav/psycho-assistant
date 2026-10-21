@@ -1,4 +1,6 @@
-"""Демо-данные для разработки: врач, пациент на Авиандре, 3 недели дневника и шкал.
+"""Демо-данные для разработки: врач, пациент на Авиандре, 4 недели дневника и GAD-7 раз в 2 недели.
+
+История заканчивается вчера: сегодняшний день пустой, и GAD-7 уже пора заполнить — это показывают на демо.
 
 Запуск: python -m app.seed   (пароль демо-аккаунтов — переменная SEED_PASSWORD, см. .env.example)
 Полноценные клинические сценарии — в scenarios/ (TODO: Савва + Влад).
@@ -19,6 +21,8 @@ from app.services.scoring import score
 
 DOCTOR_EMAIL = "doctor@example.com"
 PATIENT_EMAIL = "patient@example.com"
+HISTORY_DAYS = 28  # дневник и приём до вчера включительно
+GAD7_DAYS_AGO = ((28, 2), (14, 1))  # (дней назад, уровень ответов): раз в 14 дней, тревога снижается
 
 
 def main() -> None:
@@ -42,25 +46,25 @@ def main() -> None:
         db.add(DoctorPatientLink(doctor_id=doctor.id, patient_id=patient.id))
 
         now = utcnow()
-        start = now - timedelta(days=21)
+        start = now - timedelta(days=HISTORY_DAYS)
         rx = Prescription(patient_id=patient.id, doctor_id=doctor.id, drug_id="aviandr", drug_name="Авиандр",
                           start_date=start.date())
         db.add(rx)
         db.flush()
-        for d in range(22):
+        for d in range(HISTORY_DAYS):
             ts = start + timedelta(days=d)
-            anxiety = max(1, 8 - d // 4 + rnd.randint(-1, 1))
+            anxiety = max(1, 8 - d // 5 + rnd.randint(-1, 1))
             db.add(DiaryEntry(patient_id=patient.id, day=ts.date(), anxiety=anxiety,
-                              mood=min(10, 3 + d // 4 + rnd.randint(-1, 1)), sleep_quality=5 + d // 6,
+                              mood=min(10, 3 + d // 5 + rnd.randint(-1, 1)), sleep_quality=5 + d // 7,
                               created_at=ts))
             db.add(MedicationIntake(patient_id=patient.id, prescription_id=rx.id, day=ts.date(),
                                     status="taken" if rnd.random() > 0.1 else "missed", created_at=ts))
-        for week, level in enumerate([2, 2, 1, 1]):  # тревога снижается
+        for days_ago, level in GAD7_DAYS_AGO:
             answers = {i.id: min(3, max(0, level + rnd.randint(-1, 0))) for i in kb.scales["gad7"].items}
             result = score(kb.scales["gad7"], answers)
             db.add(ScaleResponse(patient_id=patient.id, scale_id="gad7", answers=answers, total=result.total,
                                  severity=result.severity, submitted_by=patient.id,
-                                 created_at=start + timedelta(days=7 * week)))
+                                 created_at=now - timedelta(days=days_ago)))
         db.commit()
         print(f"Готово: {DOCTOR_EMAIL} / {PATIENT_EMAIL}")
 
