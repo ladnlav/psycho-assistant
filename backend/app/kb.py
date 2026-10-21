@@ -121,23 +121,27 @@ DRUG_CHECK_NAMES = {"age", "sex", "dx", "taking"}
 
 class DrugCheck(BaseModel):
     """Пункт инструкции из ГРЛС: противопоказание, «с осторожностью» или взаимодействие.
-    Без `when` пункт не проверяется автоматически — врач подтверждает его сам."""
+    Без `when` пункт не проверяется автоматически — врач подтверждает его сам. `ask` — показать врачу
+    «проверьте у пациента», даже если в карточке ничего не найдено (true или условие, например sex == 'female')."""
     id: str
     text_ru: str
     when: str | None = None
+    ask: bool | str = False
     severity: Literal["contraindicated", "caution"] | None = None  # только для взаимодействий
 
     @model_validator(mode="after")
     def _check_expr(self) -> "DrugCheck":
-        if self.when is None:
-            return self
-        try:
-            tree = ast.parse(self.when, mode="eval")
-        except SyntaxError as e:
-            raise ValueError(f"{self.id}: синтаксическая ошибка в when: {e}") from e
-        unknown = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)} - DRUG_CHECK_NAMES
-        if unknown:
-            raise ValueError(f"{self.id}: в when неизвестные имена {sorted(unknown)}, доступны {sorted(DRUG_CHECK_NAMES)}")
+        for name, expr in (("when", self.when), ("ask", self.ask)):
+            if not isinstance(expr, str):
+                continue
+            try:
+                tree = ast.parse(expr, mode="eval")
+            except SyntaxError as e:
+                raise ValueError(f"{self.id}: синтаксическая ошибка в {name}: {e}") from e
+            unknown = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)} - DRUG_CHECK_NAMES
+            if unknown:
+                raise ValueError(f"{self.id}: в {name} неизвестные имена {sorted(unknown)}, "
+                                 f"доступны {sorted(DRUG_CHECK_NAMES)}")
         return self
 
 

@@ -58,26 +58,46 @@ def _norm_code(code: str) -> str:
     return code.upper().replace(" ", "")
 
 
-def _evaluate(item: DrugCheck, facts: PatientFacts) -> tuple[str, str | None] | None:
-    """(status, detail) для пункта, который надо показать врачу; None — пункт к пациенту не относится."""
-    if item.when is None:
-        return "manual", None
-    used = {n.id for n in ast.walk(ast.parse(item.when, mode="eval")) if isinstance(n, ast.Name)}
-    missing = [MISSING_RU[n] for n in ("age", "sex") if n in used and getattr(facts, n) is None]
-    if missing:
-        return "unchecked", ", ".join(missing)
+def _evaluator(facts: PatientFacts) -> SimpleEval:
     codes = [_norm_code(c) for c in facts.diagnoses]
-    evaluator = SimpleEval(
+    return SimpleEval(
         names={"age": facts.age, "sex": facts.sex},
         functions={
             "dx": lambda *prefixes: any(c.startswith(_norm_code(p)) for c in codes for p in prefixes),
             "taking": lambda *names: any(n.lower() in m for m in facts.medications for n in names),
         },
     )
+
+
+def _missing(expr: str, facts: PatientFacts) -> list[str]:
+    used = {n.id for n in ast.walk(ast.parse(expr, mode="eval")) if isinstance(n, ast.Name)}
+    return [MISSING_RU[n] for n in ("age", "sex") if n in used and getattr(facts, n) is None]
+
+
+def _should_ask(item: DrugCheck, facts: PatientFacts) -> bool:
+    if isinstance(item.ask, bool):
+        return item.ask
+    if _missing(item.ask, facts):
+        return True  # не знаем, относится ли пункт к пациенту, — лучше спросить
     try:
-        return ("fired", None) if evaluator.eval(item.when) is True else None
+        return _evaluator(facts).eval(item.ask) is True
+    except Exception:
+        return True
+
+
+def _evaluate(item: DrugCheck, facts: PatientFacts) -> tuple[str, str | None] | None:
+    """(status, detail) для пункта, который надо показать врачу; None — пункт к пациенту не относится."""
+    if item.when is None:
+        return "manual", None
+    if missing := _missing(item.when, facts):
+        return "unchecked", ", ".join(missing)
+    try:
+        fired = _evaluator(facts).eval(item.when) is True
     except Exception:  # выражение не вычислилось — пусть врач проверит сам
         return "unchecked", "условие не удалось проверить"
+    if fired:
+        return "fired", None
+    return ("manual", None) if _should_ask(item, facts) else None
 
 
 def check(drug: Drug, facts: PatientFacts, sources: list[str] | None = None) -> list[DrugWarning]:

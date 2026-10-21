@@ -91,8 +91,22 @@ def test_prescription_needs_acknowledgement_and_reason(client, doctor_token, pat
     assert {"id": "pregnancy", "kind": "contraindication", "status": "fired"} in entry.data["warnings"]
 
 
-def test_drug_without_instruction_data_says_so(client, doctor_token, patient_token):
+def test_drug_without_instruction_data_says_so(client, doctor_token, patient_token, kb_with_testdrug):
+    kb_with_testdrug.drugs["emptydrug"] = Drug(id="emptydrug", trade_name="Пустоцин", inn="пустоцин",
+                                               registered_rf=True, status="draft")
     pid = client.get("/api/doctor/patients", headers=auth(doctor_token)).json()[0]["id"]
     result = client.post(f"/api/doctor/patients/{pid}/prescriptions/check",
-                         json={"drug_id": "aviandr", "drug_name": "Авиандр"}, headers=auth(doctor_token)).json()
+                         json={"drug_id": "emptydrug", "drug_name": "Пустоцин"}, headers=auth(doctor_token)).json()
     assert result["checked"] is False and "ГРЛС" in result["notice_ru"]
+
+
+def test_ask_shows_item_when_card_has_nothing():
+    drug = Drug(id="d", trade_name="Д", inn="д", registered_rf=True, status="draft", contraindications=[
+        DrugCheck(id="renal", text_ru="Почечная недостаточность", when="dx('N18.4')", ask=True),
+        DrugCheck(id="pregnancy", text_ru="Беременность", when="dx('Z33')", ask="sex == 'female'"),
+    ])
+    shown = lambda facts: {w.id: w.status for w in check(drug, facts)}
+    assert shown(PatientFacts(sex="male")) == {"renal": "manual"}, "мужчину о беременности не спрашиваем"
+    assert shown(PatientFacts(sex="female")) == {"renal": "manual", "pregnancy": "manual"}
+    assert shown(PatientFacts(sex=None))["pregnancy"] == "manual", "пол неизвестен — лучше спросить"
+    assert shown(PatientFacts(sex="female", diagnoses=["Z33"]))["pregnancy"] == "fired"

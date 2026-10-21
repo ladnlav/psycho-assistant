@@ -157,9 +157,10 @@ kr_depression:
 
 grls_aviandr:
   type: instruction
-  title: "TODO(Савва): Инструкция по медицинскому применению ЛП «Авиандр» (маритупирдин), ГРЛС — номер РУ и дата"
-  url: https://grls.rosminzdrav.ru
+  title: "Инструкция по медицинскому применению ЛП «Авиандр» (маритупирдин), РУ ЛП-№(002445)-(РГ-RU) от 31.05.2023, переоформлено 21.05.2025"
+  url: https://grls.pharm-portal.ru/grls/26afe55c-02b5-41c6-a53b-7a09eb619ef1
   verified: false
+  note: "Номер РУ, даты и ссылка — из таблицы Саввы 21.10. TODO(Савва): PDF инструкции и сверка с официальным ГРЛС (grls.rosminzdrav.ru)"
 
 sponsor_deck_aviandr:
   type: other

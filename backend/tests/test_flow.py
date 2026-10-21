@@ -88,8 +88,10 @@ def test_prescription_and_intake(client, doctor_token, patient_token):
                       headers=auth(doctor_token))
     assert bad.status_code == 422, "только препараты из kb/drugs, зарегистрированные в РФ"
 
-    rx = client.post(f"/api/doctor/patients/{pid}/prescriptions",
-                     json={"drug_id": "aviandr", "drug_name": "Авиандр"}, headers=auth(doctor_token)).json()
+    aviandr = {"drug_id": "aviandr", "drug_name": "Авиандр"}
+    check = client.post(f"/api/doctor/patients/{pid}/prescriptions/check", json=aviandr, headers=auth(doctor_token))
+    acked = aviandr | {"acknowledged_warnings": [w["id"] for w in check.json()["warnings"]]}
+    rx = client.post(f"/api/doctor/patients/{pid}/prescriptions", json=acked, headers=auth(doctor_token)).json()
     mine = client.get("/api/patient/prescriptions", headers=auth(patient_token)).json()
     assert [p["id"] for p in mine] == [rx["id"]]
 
