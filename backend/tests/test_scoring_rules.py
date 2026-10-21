@@ -2,7 +2,7 @@ import pytest
 
 from app.config import get_settings
 from app.kb import load_kb
-from app.services.rules import evaluate
+from app.services.rules import RECORD, evaluate, evidence, referenced_names
 from app.services.scoring import ScoringError, score
 
 KB = load_kb(get_settings().kb_dir)
@@ -50,3 +50,17 @@ def test_gad7_worsening_uses_mcid():
 def test_low_adherence():
     assert "low_adherence" in fired({"pdc_7d": 0.5})
     assert "low_adherence" not in fired({"pdc_7d": 1.0})
+
+
+def test_referenced_names():
+    assert referenced_names("gad7.n >= 2 and gad7.delta_prev >= gad7.mcid") == (
+        ("gad7", "delta_prev"), ("gad7", "mcid"), ("gad7", "n"))
+    assert referenced_names("pdc_7d < 0.8") == (("pdc_7d", None),)
+
+
+def test_evidence_tracks_rule_data_only():
+    rule = KB.rules["phq9_suicidal_ideation"]
+    phq9 = {**answers(9, item9=1), "total": 1, RECORD: "a"}
+    ev = evidence(rule, {"phq9": phq9, "pdc_7d": 0.5})
+    assert ev == {"phq9.item9": 1, f"phq9.{RECORD}": "a"}, "в отпечатке только то, на что смотрит правило"
+    assert evidence(rule, {"phq9": phq9 | {RECORD: "b"}}) != ev, "новый результат шкалы — новое событие"

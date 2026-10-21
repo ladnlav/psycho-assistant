@@ -18,7 +18,7 @@ from app.kb import KnowledgeBase
 from app.models import Alert, DoctorPatientLink, Recommendation, utcnow
 from app.services.audit import audit
 from app.services.context import build_context
-from app.services.rules import evaluate
+from app.services.rules import evaluate, evidence
 
 log = logging.getLogger(__name__)
 
@@ -40,23 +40,40 @@ def lead_doctor_id(db: Session, patient_id: uuid.UUID) -> uuid.UUID | None:
     )
 
 
+def has_pending_proposal(db: Session, patient_id: uuid.UUID, rule_id: str, kind: str, to: str) -> bool:
+    pending = db.scalars(
+        select(Recommendation).where(
+            Recommendation.patient_id == patient_id, Recommendation.rule_id == rule_id,
+            Recommendation.kind == kind, Recommendation.status == "proposed",
+        )
+    )
+    return any(r.payload.get("to") == to for r in pending)
+
+
 def apply_rules(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, trigger: str) -> RulesOutcome:
-    """Вычисляет правила по свежим данным пациента. Повторный алерт по тому же правилу не создаётся,
-    пока врач не подтвердил предыдущий. Коммит — на вызывающей стороне."""
+    """Вычисляет правила по свежим данным пациента и реагирует только на новые данные.
+
+    Правило смотрит на состояние, поэтому срабатывает при каждой записи пациента. У алерта хранится отпечаток
+    данных (rules.evidence): с тем же отпечатком нет ни нового алерта, ни экрана безопасности. Пока алерт
+    не подтверждён, новые данные дописываются в него, а не порождают второй. Коммит — на вызывающей стороне.
+    """
     outcome = RulesOutcome()
     doctor_id = lead_doctor_id(db, patient_id)
     context = build_context(db, kb, patient_id)
     for rule in evaluate(kb.rules.values(), context):
+        ev = evidence(rule, context)
+        last = db.scalar(
+            select(Alert).where(Alert.patient_id == patient_id, Alert.rule_id == rule.id)
+            .order_by(Alert.created_at.desc()).limit(1)
+        )
+        if last is not None and (last.details or {}).get("evidence") == ev:
+            continue  # те же данные, о которых врач уже знает
         if "patient_safety_screen" in rule.actions:
             outcome.show_safety_screen = True
         if doctor_id is None or "notify_doctor" not in rule.actions:
             continue
-        open_alert = db.scalar(
-            select(Alert.id).where(
-                Alert.patient_id == patient_id, Alert.rule_id == rule.id, Alert.acknowledged_at.is_(None)
-            )
-        )
-        if open_alert:
+        if last is not None and last.acknowledged_at is None:
+            last.details = {**(last.details or {}), "evidence": ev}
             continue
         alert = Alert(
             patient_id=patient_id,
@@ -64,13 +81,15 @@ def apply_rules(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, trigger: 
             rule_id=rule.id,
             level=rule.level,
             title=rule.title_ru,
-            details={"trigger": trigger, "rule_status": rule.status},
+            details={"trigger": trigger, "rule_status": rule.status, "evidence": ev},
             sources=rule.sources,
         )
         db.add(alert)
         db.flush()
         outcome.new_alert_ids.append(alert.id)
         for p in rule.propose:
+            if has_pending_proposal(db, patient_id, rule.id, p.kind, p.to):
+                continue  # прежнее предложение ещё ждёт решения врача
             db.add(
                 Recommendation(
                     patient_id=patient_id,

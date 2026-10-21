@@ -22,6 +22,7 @@ export function useDoctorAlerts(enabled: boolean) {
         if (msg.type !== 'alert') return;
         const { label, color } = ALERT_LEVEL[msg.alert.level];
         notifications.show({
+          id: msg.alert.id, // повторно присланный алерт не добавит второе уведомление
           title: `${label}: ${msg.alert.title}`,
           message: 'Откройте карточку пациента',
           color,

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert as MAlert, Anchor, Badge, Button, Card, Group, NumberInput, SimpleGrid, Stack, Text, TextInput,
   Title } from '@mantine/core';
 import { LineChart } from '@mantine/charts';
+import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
 import { api, type Alert, type PatientCard, type Recommendation } from '../../api';
@@ -20,7 +21,11 @@ function AlertsBlock({ card }: { card: PatientCard }) {
   const qc = useQueryClient();
   const ack = useMutation({
     mutationFn: (id: string) => api(`/doctor/alerts/${id}/ack`, { method: 'POST' }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['card', card.id] }); qc.invalidateQueries({ queryKey: ['patients'] }); },
+    onSuccess: (_, id) => {
+      notifications.hide(id); // критичные уведомления не закрываются сами — убираем после подтверждения
+      qc.invalidateQueries({ queryKey: ['card', card.id] });
+      qc.invalidateQueries({ queryKey: ['patients'] });
+    },
   });
   const open = card.alerts.filter((a) => !a.acknowledged_at);
   if (!open.length) return null;

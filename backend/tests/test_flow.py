@@ -30,6 +30,58 @@ def test_critical_alert_and_doctor_decision(client, doctor_token, patient_token)
     assert client.post(f"/api/doctor/alerts/{alert_id}/ack", headers=auth(doctor_token)).json()["acknowledged_at"]
 
 
+GAD7_MILD = {f"item{i}": 1 for i in range(1, 8)}
+DIARY = {"anxiety": 5, "mood": 5}
+
+
+def ack_all(client, doctor_token):
+    for a in client.get("/api/doctor/alerts", headers=auth(doctor_token)).json():
+        client.post(f"/api/doctor/alerts/{a['id']}/ack", headers=auth(doctor_token))
+
+
+def proposed(client, doctor_token):
+    pid = client.get("/api/doctor/patients", headers=auth(doctor_token)).json()[0]["id"]
+    card = client.get(f"/api/doctor/patients/{pid}", headers=auth(doctor_token)).json()
+    return [r for r in card["recommendations"] if r["status"] == "proposed"]
+
+
+def test_alert_not_repeated_without_new_data(client, doctor_token, patient_token):
+    """Баг 21.10: после «Принято к сведению» любое действие пациента снова создавало алерт и направление."""
+    for _ in range(2):  # второй ответ приходит, пока алерт открыт, — он дописывается в этот алерт
+        client.post("/api/patient/scales/phq9", json={"answers": PHQ9_ITEM9}, headers=auth(patient_token))
+    ack_all(client, doctor_token)
+
+    client.post("/api/patient/diary", json=DIARY, headers=auth(patient_token))
+    r = client.post("/api/patient/scales/gad7", json={"answers": GAD7_MILD}, headers=auth(patient_token))
+    assert r.json()["safety"] is None, "экран безопасности — только на новый положительный ответ"
+    assert client.get("/api/doctor/alerts", headers=auth(doctor_token)).json() == []
+    assert len(proposed(client, doctor_token)) == 1
+
+
+def test_new_positive_answer_after_ack_alerts_again(client, doctor_token, patient_token):
+    client.post("/api/patient/scales/phq9", json={"answers": PHQ9_ITEM9}, headers=auth(patient_token))
+    ack_all(client, doctor_token)
+
+    r = client.post("/api/patient/scales/phq9", json={"answers": PHQ9_ITEM9}, headers=auth(patient_token))
+    assert r.json()["safety"] is not None
+    alerts = client.get("/api/doctor/alerts", headers=auth(doctor_token)).json()
+    assert [a["rule_id"] for a in alerts] == ["phq9_suicidal_ideation"]
+    assert len(proposed(client, doctor_token)) == 1, "прежнее направление ждёт решения — второе не предлагаем"
+
+
+def test_serious_adverse_event_alerts_once_per_event(client, doctor_token, patient_token):
+    ae = {"description": "Обморок", "severity": "severe", "serious": True}
+    client.post("/api/patient/adverse-events", json=ae, headers=auth(patient_token))
+    ack_all(client, doctor_token)
+
+    client.post("/api/patient/diary", json=DIARY, headers=auth(patient_token))
+    assert client.get("/api/doctor/alerts", headers=auth(doctor_token)).json() == []
+
+    client.post("/api/patient/adverse-events", json=ae, headers=auth(patient_token))
+    alerts = client.get("/api/doctor/alerts", headers=auth(doctor_token)).json()
+    assert [a["rule_id"] for a in alerts] == ["serious_adverse_event"]
+
+
 def test_prescription_and_intake(client, doctor_token, patient_token):
     pid = client.get("/api/doctor/patients", headers=auth(doctor_token)).json()[0]["id"]
     bad = client.post(f"/api/doctor/patients/{pid}/prescriptions", json={"drug_id": "unknown", "drug_name": "X"},

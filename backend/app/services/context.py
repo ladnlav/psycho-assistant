@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.kb import KnowledgeBase
 from app.models import AdverseEvent, DiaryEntry, MedicationIntake, Prescription, ScaleResponse, utcnow
+from app.services.rules import RECORD
 
 
 def _scale_context(db: Session, patient_id: uuid.UUID, scale_id: str, mcid: float | None) -> dict | None:
@@ -29,6 +30,7 @@ def _scale_context(db: Session, patient_id: uuid.UUID, scale_id: str, mcid: floa
         "mcid": mcid,
         "delta_prev": latest.total - prev.total if prev else 0,
         "delta_baseline": latest.total - first.total,
+        RECORD: str(latest.id),
     }
 
 
