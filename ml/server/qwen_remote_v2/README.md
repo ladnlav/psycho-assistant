@@ -6,7 +6,7 @@ Run on your laptop, without SSH, using your existing JupyterHub token and server
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install requests websocket-client
+.venv/bin/python -m pip install requests websocket-client python-dotenv
 chmod +x start_llm.sh stop_llm.sh
 ```
 

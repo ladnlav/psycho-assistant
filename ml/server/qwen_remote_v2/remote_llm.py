@@ -12,10 +12,27 @@ from urllib.parse import urlparse
 import requests
 import websocket
 
-BASE = os.getenv('JUPYTERHUB_URL', 'https://jupyterhub.example.com').rstrip('/')
-USER = os.getenv('JUPYTERHUB_USER', 'your-login')
-TOKEN_FILE = Path(os.getenv('JUPYTERHUB_TOKEN_FILE', str(Path.home() / '.config/qwen/token'))).expanduser()
+from dotenv import load_dotenv
 
+# Корневой .env проекта psycho-assistant
+def find_env():
+    for directory in [Path(__file__).resolve().parent, *Path(__file__).resolve().parents]:
+        if directory.name == "psycho-assistant":
+            env_file = directory / ".env"
+            if env_file.is_file():
+                return env_file
+
+    raise FileNotFoundError("Не найден корневой psycho-assistant/.env")
+
+load_dotenv(find_env())
+
+LLM_BASE_URL = os.environ["LLM_BASE_URL"].rstrip("/")
+TOKEN = os.environ["LLM_API_KEY"]
+
+parsed = urlparse(LLM_BASE_URL)
+
+BASE = f"{parsed.scheme}://{parsed.netloc}"
+USER = parsed.path.split("/")[2]
 
 def api_request(session, method, path, **kwargs):
     response = session.request(method, BASE + path, timeout=30, **kwargs)
@@ -95,6 +112,15 @@ def remote_command(session, token, command, timeout=300):
             collected += chunk
             # ANSI escape sequences and CRs can split or interrupt marker.
             import re
+
+            # Удаляем OSC-последовательности терминала
+            collected = re.sub(
+                r'\x1b\].*?(?:\x07|\x1b\\)',
+                '',
+                collected,
+                flags=re.DOTALL
+            )
+
             normalized = re.sub(r'\x1b\[[0-9;?]*[ -/]*[@-~]', '', collected).replace('\r', '')
             match = re.search(re.escape(marker) + r'(\d+)\s*(?:\n|$)', normalized)
             if match:
@@ -126,7 +152,7 @@ def main():
     a = p.parse_args()
     if a.action == 'start' and a.session:
         p.error('--session is supported only for stop')
-    token = TOKEN_FILE.read_text(encoding='utf-8').strip()
+    token = TOKEN.strip()
     if not token:
         raise RuntimeError('JupyterHub token is empty')
     session = requests.Session()
