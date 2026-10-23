@@ -8,6 +8,7 @@ import logging
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import timezone
 
 from fastapi import WebSocket
 from sqlalchemy import select
@@ -29,7 +30,13 @@ REFERRAL_TO_RU = {"psychiatrist": "психиатру", "psychotherapist": "пс
 @dataclass
 class RulesOutcome:
     new_alert_ids: list[uuid.UUID] = field(default_factory=list)
+    updated_alert_ids: list[uuid.UUID] = field(default_factory=list)  # открытые алерты, в которые пришли новые данные
     show_safety_screen: bool = False
+
+    @property
+    def push_ids(self) -> list[uuid.UUID]:
+        """Что отправить врачу: новые алерты и обновлённые открытые."""
+        return self.new_alert_ids + self.updated_alert_ids
 
 
 def lead_doctor_id(db: Session, patient_id: uuid.UUID) -> uuid.UUID | None:
@@ -55,7 +62,8 @@ def apply_rules(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, trigger: 
 
     Правило смотрит на состояние, поэтому срабатывает при каждой записи пациента. У алерта хранится отпечаток
     данных (rules.evidence): с тем же отпечатком нет ни нового алерта, ни экрана безопасности. Пока алерт
-    не подтверждён, новые данные дописываются в него, а не порождают второй. Коммит — на вызывающей стороне.
+    не подтверждён, новые данные дописываются в него, а не порождают второй, и алерт отправляется врачу заново
+    (outcome.updated_alert_ids). Коммит — на вызывающей стороне.
     """
     outcome = RulesOutcome()
     doctor_id = lead_doctor_id(db, patient_id)
@@ -73,7 +81,12 @@ def apply_rules(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, trigger: 
         if doctor_id is None or "notify_doctor" not in rule.actions:
             continue
         if last is not None and last.acknowledged_at is None:
-            last.details = {**(last.details or {}), "evidence": ev}
+            # Второго алерта не создаём, но врач должен увидеть новые данные: алерт уходит ему заново.
+            details = last.details or {}
+            last.details = {**details, "evidence": ev, "updated_at": utcnow().isoformat(),
+                            "updates": details.get("updates", 0) + 1}
+            outcome.updated_alert_ids.append(last.id)
+            audit(db, None, "alert.updated", "alert", last.id, {"rule": rule.id, "trigger": trigger})
             continue
         alert = Alert(
             patient_id=patient_id,
@@ -115,6 +128,7 @@ def alert_to_dict(alert: Alert) -> dict:
         "created_at": alert.created_at.isoformat(),
         "delivered_at": alert.delivered_at.isoformat() if alert.delivered_at else None,
         "acknowledged_at": alert.acknowledged_at.isoformat() if alert.acknowledged_at else None,
+        "updated_at": alert.updated_at.isoformat() if alert.updated_at else None,
     }
 
 
@@ -149,7 +163,8 @@ class AlertHub:
                         self.disconnect(alert.doctor_id, ws)
                 if sent and alert.delivered_at is None:
                     alert.delivered_at = utcnow()
-                    log.info("alert %s delivered in %s", alert.id, alert.delivered_at - alert.created_at)
+                    created = alert.created_at.replace(tzinfo=alert.created_at.tzinfo or timezone.utc)  # SQLite: без пояса
+                    log.info("alert %s delivered in %s", alert.id, alert.delivered_at - created)
             db.commit()
 
 

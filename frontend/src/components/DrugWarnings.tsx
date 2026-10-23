@@ -1,7 +1,7 @@
 import { Badge, Checkbox, Group, Paper, Stack, Text } from '@mantine/core';
 import { IconAlertTriangle } from '@tabler/icons-react';
 import type { DrugWarning } from '../api';
-import { DRUG_WARNING_KIND, DRUG_WARNING_STATUS } from '../labels';
+import { DRUG_WARNING_KIND, DRUG_WARNING_STATUS, capitalize } from '../labels';
 import { Sources } from './Sources';
 
 /** Пункты инструкции, которые врач учитывает до назначения: каждый отмечает сам. */
@@ -23,7 +23,7 @@ export function DrugWarnings({ warnings, acked, onAck }: {
                 {DRUG_WARNING_STATUS[w.status]}{w.detail_ru ? `: ${w.detail_ru}` : ''}
               </Text>
             </Group>
-            <Text size="sm">{w.text_ru}</Text>
+            <Text size="sm">{capitalize(w.text_ru)}</Text>
             <Text size="xs" c="dimmed" mb={4}>Инструкция, раздел «{w.section_ru}»</Text>
             <Sources ids={w.sources} />
             <Checkbox mt={6} size="xs" checked={!!acked[w.id]} onChange={(e) => onAck(w.id, e.currentTarget.checked)}

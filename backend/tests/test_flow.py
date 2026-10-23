@@ -1,5 +1,7 @@
 """Сквозной сценарий: врач → приглашение → пациент → PHQ-9 с п. 9 → алерт → решение врача."""
 
+from datetime import datetime
+
 from tests.conftest import auth
 
 PHQ9_ITEM9 = {f"item{i}": 0 for i in range(1, 10)} | {"item9": 1}
@@ -80,6 +82,26 @@ def test_serious_adverse_event_alerts_once_per_event(client, doctor_token, patie
     client.post("/api/patient/adverse-events", json=ae, headers=auth(patient_token))
     alerts = client.get("/api/doctor/alerts", headers=auth(doctor_token)).json()
     assert [a["rule_id"] for a in alerts] == ["serious_adverse_event"]
+
+
+def test_new_data_in_open_alert_is_sent_to_doctor_again(client, doctor_token, patient_token):
+    """Прогон 23.10: второе серьёзное явление, пока алерт открыт, врач не видел до подтверждения."""
+    ae = {"description": "Обморок", "severity": "severe", "serious": True}
+    with client.websocket_connect(f"/ws/doctor?token={doctor_token}") as ws:
+        client.post("/api/patient/adverse-events", json=ae, headers=auth(patient_token))
+        first = ws.receive_json()["alert"]
+        client.post("/api/patient/adverse-events", json=ae | {"description": "Снова обморок"},
+                    headers=auth(patient_token))
+        again = ws.receive_json()["alert"]
+    assert first["updated_at"] is None
+    assert again["id"] == first["id"] and again["updated_at"], "тот же алерт, но с отметкой о новых данных"
+    updated = datetime.fromisoformat(again["updated_at"])
+
+    alerts = client.get("/api/doctor/alerts", headers=auth(doctor_token)).json()
+    assert len(alerts) == 1 and datetime.fromisoformat(alerts[0]["updated_at"]) == updated
+    client.post("/api/patient/diary", json=DIARY, headers=auth(patient_token))
+    alerts = client.get("/api/doctor/alerts", headers=auth(doctor_token)).json()
+    assert datetime.fromisoformat(alerts[0]["updated_at"]) == updated, "дневник не меняет данных алерта"
 
 
 def test_prescription_and_intake(client, doctor_token, patient_token):

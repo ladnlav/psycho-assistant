@@ -53,6 +53,7 @@ export interface PrescriptionCheck { checked: boolean; notice_ru: string | null;
 export interface Alert {
   id: string; patient_id: string; rule_id: string; level: AlertLevel; title: string; sources: string[];
   created_at: string; delivered_at: string | null; acknowledged_at: string | null;
+  updated_at: string | null; // новые данные в открытом алерте
 }
 export interface Recommendation {
   id: string;

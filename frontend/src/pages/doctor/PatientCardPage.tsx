@@ -55,6 +55,7 @@ function AlertsBlock({ card }: { card: PatientCard }) {
             <Text size="xs">
               {formatDateTime(a.created_at)}
               {deliverySeconds(a) !== null ? ` · доставлено за ${deliverySeconds(a)} с` : ' · ещё не доставлено'}
+              {a.updated_at && ` · новые данные ${formatDateTime(a.updated_at)}`}
             </Text>
             <Sources ids={a.sources} inverted={a.level === 'critical'} />
             <Group><Button size="xs" variant="white" color="dark" loading={ack.isPending}
@@ -150,7 +151,8 @@ function PrescribeForm({ patientId }: { patientId: string }) {
 
 export function PatientCardPage() {
   const { patientId = '' } = useParams();
-  const { data: card } = useQuery({ queryKey: ['card', patientId],
+  // Записи пациента без алерта (дневник, приём, лёгкий побочный эффект) по WebSocket не приходят — опрашиваем, как чат.
+  const { data: card } = useQuery({ queryKey: ['card', patientId], refetchInterval: 10_000,
     queryFn: () => api<PatientCard>(`/doctor/patients/${patientId}`) });
   if (!card) return <Text>Загрузка…</Text>;
 

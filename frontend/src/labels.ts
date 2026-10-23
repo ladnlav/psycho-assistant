@@ -56,6 +56,11 @@ export function plural(n: number, one: string, few: string, many: string): strin
   return many;
 }
 
+/** Пункты инструкции перенесены дословно, а в списках инструкции они со строчной буквы. */
+export function capitalize(text: string): string {
+  return text ? text[0].toLocaleUpperCase('ru-RU') + text.slice(1) : text;
+}
+
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
 }

@@ -21,10 +21,12 @@ export function useDoctorAlerts(enabled: boolean) {
         const msg = JSON.parse(event.data) as { type: string; alert: Alert };
         if (msg.type !== 'alert') return;
         const { label, color } = ALERT_LEVEL[msg.alert.level];
+        // В открытый алерт пришли новые данные — показываем уведомление заново, даже если врач его закрыл.
+        if (msg.alert.updated_at) notifications.hide(msg.alert.id);
         notifications.show({
           id: msg.alert.id, // повторно присланный алерт не добавит второе уведомление
           title: `${label}: ${msg.alert.title}`,
-          message: 'Откройте карточку пациента',
+          message: msg.alert.updated_at ? 'Новые данные — откройте карточку пациента' : 'Откройте карточку пациента',
           color,
           autoClose: msg.alert.level === 'critical' ? false : 10000,
         });

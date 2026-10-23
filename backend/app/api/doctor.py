@@ -159,7 +159,7 @@ def submit_clinician_scale(patient_id: uuid.UUID, scale_id: str, body: ScaleSubm
                            kb: KnowledgeBase = Depends(get_kb)):
     ensure_own_patient(db, doctor, patient_id)
     result, outcome = record_scale(db, kb, patient_id, doctor.id, scale_id, body.answers, rater="clinician")
-    tasks.add_task(hub.push, outcome.new_alert_ids)
+    tasks.add_task(hub.push, outcome.push_ids)
     return result
 
 

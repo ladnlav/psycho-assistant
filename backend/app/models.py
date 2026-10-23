@@ -241,6 +241,12 @@ class Alert(Base):
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     acknowledged_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
 
+    @property
+    def updated_at(self) -> datetime | None:
+        """Когда в открытый алерт последний раз пришли новые данные (services/alerts.apply_rules)."""
+        value = (self.details or {}).get("updated_at")
+        return datetime.fromisoformat(value) if value else None
+
 
 class Message(Base):
     __tablename__ = "messages"

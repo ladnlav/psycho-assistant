@@ -174,6 +174,7 @@ class AlertOut(ORM):
     created_at: datetime
     delivered_at: datetime | None
     acknowledged_at: datetime | None
+    updated_at: datetime | None = None  # новые данные в открытом алерте
 
 
 class RecommendationOut(ORM):

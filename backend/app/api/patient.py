@@ -45,7 +45,7 @@ def my_schedule(user: User = Depends(require_patient), db: Session = Depends(get
 def submit_scale(scale_id: str, body: ScaleSubmit, tasks: BackgroundTasks, user: User = Depends(require_patient),
                  db: Session = Depends(get_db), kb: KnowledgeBase = Depends(get_kb)):
     result, outcome = record_scale(db, kb, user.id, user.id, scale_id, body.answers, rater="patient")
-    tasks.add_task(hub.push, outcome.new_alert_ids)
+    tasks.add_task(hub.push, outcome.push_ids)
     return result
 
 
@@ -62,7 +62,7 @@ def add_diary(body: DiaryIn, tasks: BackgroundTasks, user: User = Depends(requir
     db.flush()
     outcome = apply_rules(db, kb, user.id, trigger="diary")
     db.commit()
-    tasks.add_task(hub.push, outcome.new_alert_ids)
+    tasks.add_task(hub.push, outcome.push_ids)
     return entry
 
 
@@ -101,7 +101,7 @@ def mark_intake(body: IntakeIn, tasks: BackgroundTasks, user: User = Depends(req
     db.flush()
     outcome = apply_rules(db, kb, user.id, trigger="intake")
     db.commit()
-    tasks.add_task(hub.push, outcome.new_alert_ids)
+    tasks.add_task(hub.push, outcome.push_ids)
     return intake
 
 
@@ -121,7 +121,7 @@ def report_adverse_event(body: AdverseEventIn, tasks: BackgroundTasks, user: Use
     audit(db, user.id, "adverse_event.reported", "adverse_event", ae.id, {"serious": body.serious})
     outcome = apply_rules(db, kb, user.id, trigger="adverse_event")
     db.commit()
-    tasks.add_task(hub.push, outcome.new_alert_ids)
+    tasks.add_task(hub.push, outcome.push_ids)
     return ae
 
 
