@@ -34,6 +34,24 @@ services:
       db:
         condition: service_healthy
 
+  # Резервные копии базы по расписанию: раз в 2 часа (RPO), хранятся последние 24 — README, «Резервные копии»
+  backup:
+    image: postgres:16-alpine
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-compass}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-compass}
+      PGDATABASE: ${POSTGRES_DB:-compass}
+      BACKUP_INTERVAL_S: ${BACKUP_INTERVAL_S:-7200}
+      BACKUP_KEEP: ${BACKUP_KEEP:-24}
+    volumes:
+      - ./scripts/backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+
   ml:
     build: ./ml
     environment:

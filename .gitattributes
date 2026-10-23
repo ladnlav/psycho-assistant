@@ -1,0 +1,2 @@
+# Скрипты для Linux-контейнеров и bash: всегда LF, даже при core.autocrlf=true на Windows
+*.sh text eol=lf

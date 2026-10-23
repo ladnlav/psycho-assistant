@@ -76,7 +76,22 @@ cd frontend && npm run build                             # проверка ти
 | `backend/` | FastAPI + PostgreSQL: роли, связь врач–пациент, шкалы, дневник, приём, НЯ, алерты (WebSocket), решения врача, аудит | Владислав |
 | `ml/` | LLM-сервис: извлечение из историй болезни, триаж сообщений, оценка качества (`ml/eval`) | Матвей |
 | `frontend/` | React PWA (Mantine): интерфейсы пациента и врача | Claude, Владислав |
-| `loadtest/`, `scripts/` | Нагрузочный тест, резервные копии, замеры (появятся) | Александр |
+| `loadtest/`, `scripts/` | Замеры доставки алертов и нагрузки ([loadtest/README.md](loadtest/README.md)), резервные копии базы | Александр |
+
+## Резервные копии
+
+Сервис `backup` в docker compose раз в 2 часа снимает копию базы в папку `backups/` (в git не попадает) и хранит последние 24 — двое суток. RPO — 2 часа: при сбое теряем данные не больше чем за 2 часа. Интервал и число копий задаются в `.env` переменными `BACKUP_INTERVAL_S` и `BACKUP_KEEP`. Время в имени файла — UTC; ход работы — `docker compose logs backup`. Копии лежат на том же компьютере, что и база, и переживают `docker compose down -v`, но не потерю диска; в реальной эксплуатации их нужно уносить на отдельное хранилище.
+
+Восстановление в отдельную базу, рабочую не трогаем:
+
+```bash
+docker compose cp backups/<файл>.dump db:/tmp/restore.dump
+docker compose exec db createdb -U compass compass_restore
+docker compose exec db pg_restore -U compass -d compass_restore /tmp/restore.dump
+docker compose exec db psql -U compass -d compass_restore -c "select count(*) from alerts"
+```
+
+Время от начала восстановления до успешной проверки — RTO. Если `compass_restore` уже есть, сначала `docker compose exec db dropdb -U compass compass_restore`.
 
 ## Изменение модели данных
 
