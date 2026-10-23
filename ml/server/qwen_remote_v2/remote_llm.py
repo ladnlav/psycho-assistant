@@ -14,25 +14,27 @@ import websocket
 
 from dotenv import load_dotenv
 
-# Корневой .env проекта psycho-assistant
-def find_env():
-    for directory in [Path(__file__).resolve().parent, *Path(__file__).resolve().parents]:
-        if directory.name == "psycho-assistant":
-            env_file = directory / ".env"
-            if env_file.is_file():
-                return env_file
+for stream in (sys.stdout, sys.stderr):  # кириллица в Git Bash на Windows
+    stream.reconfigure(encoding='utf-8')
 
-    raise FileNotFoundError("Не найден корневой psycho-assistant/.env")
-
-load_dotenv(find_env())
+# Корневой .env репозитория: ml/server/qwen_remote_v2/remote_llm.py → три уровня вверх.
+# Папка репозитория может называться как угодно (psycho-assistant, Psycho-Assistant, …).
+ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
+if not ENV_FILE.is_file():
+    sys.exit(f"ERROR: нет {ENV_FILE} — скопируйте .env.example в .env")
+load_dotenv(ENV_FILE)
 
 LLM_BASE_URL = os.environ["LLM_BASE_URL"].rstrip("/")
 TOKEN = os.environ["LLM_API_KEY"]
 
 parsed = urlparse(LLM_BASE_URL)
+parts = parsed.path.split("/")
+if parsed.scheme not in ("http", "https") or len(parts) < 3 or parts[1] != "user":
+    sys.exit("ERROR: LLM_BASE_URL в .env должен быть адресом прокси JupyterHub: "
+             "https://<адрес-JupyterHub>/user/<логин>/proxy/11435/v1")
 
 BASE = f"{parsed.scheme}://{parsed.netloc}"
-USER = parsed.path.split("/")[2]
+USER = parts[2]
 
 def api_request(session, method, path, **kwargs):
     response = session.request(method, BASE + path, timeout=30, **kwargs)

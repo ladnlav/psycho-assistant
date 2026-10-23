@@ -1,25 +1,25 @@
-# Qwen remote JupyterHub control
+# Модель на V100 через JupyterHub
 
-Run on your laptop, without SSH, using your existing JupyterHub token and server-side scripts.
+Скрипты запускают с ноутбука GPU-сессию JupyterHub, а в ней — Ollama с OpenAI-совместимым прокси на порту 11435. SSH не нужен. Настройка `.env` и проверка описаны в корневом README, раздел «Модель на V100 через JupyterHub».
 
-## Setup
+## Установка
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install requests websocket-client python-dotenv
-chmod +x start_llm.sh stop_llm.sh
+py -3.12 -m venv .venv                            # Ubuntu: python3 -m venv .venv
+.venv/Scripts/pip install -r requirements.txt     # Ubuntu: .venv/bin/pip install -r requirements.txt
 ```
 
-## Use
+## Запуск и остановка
 
 ```bash
 ./start_llm.sh
 ./stop_llm.sh
-./stop_llm.sh --session  # also stop the JupyterHub GPU session
+./stop_llm.sh --session   # заодно остановить GPU-сессию JupyterHub
 ```
 
-Prerequisites on GPU server: `~/start_qwen.sh`, `~/stop_qwen.sh`, `~/ollama_proxy.py`, and Ollama with the `qwen2.5:14b` model. Token file on laptop: `~/.config/qwen/token`.
+Адрес и токен скрипт берёт из корневого `.env` репозитория:
 
-Optional environment variables: `JUPYTERHUB_URL`, `JUPYTERHUB_USER`, `JUPYTERHUB_TOKEN_FILE`.
+- `LLM_BASE_URL` — `https://<адрес-JupyterHub>/user/<логин>/proxy/11435/v1`, из него же берётся логин;
+- `LLM_API_KEY` — токен JupyterHub. Он должен оставаться действительным после остановки GPU-сессии и давать право запускать сессии с профилем `gpu`. Токен в git не коммитим.
 
-The JupyterHub token must remain valid after a GPU session stops, and you must have permissions to spawn GPU profile sessions. Per-cluster policies apply. Never commit the token to git.
+На GPU-сервере нужны `~/start_qwen.sh`, `~/stop_qwen.sh`, `~/ollama_proxy.py` и Ollama с моделью `qwen2.5:14b`. TODO(Матвей): положить эти скрипты в эту папку.
