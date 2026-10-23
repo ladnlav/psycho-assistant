@@ -4,9 +4,16 @@ os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import event  # noqa: E402
 
 from app.db import Base, engine  # noqa: E402
 from app.main import app  # noqa: E402
+
+
+@event.listens_for(engine, "connect")
+def _foreign_keys(dbapi_connection, _record):
+    """SQLite по умолчанию не проверяет внешние ключи, а Postgres проверяет."""
+    dbapi_connection.execute("PRAGMA foreign_keys=ON")
 
 
 @pytest.fixture()

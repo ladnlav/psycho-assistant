@@ -12,6 +12,7 @@ cd psycho-assistant
 cp .env.example .env
 docker compose up -d --build                         # первый раз — несколько минут
 docker compose exec backend python -m app.seed       # демо-врач и демо-пациент с данными за 4 недели
+docker compose exec backend python -m app.scenarios  # пациенты клинических сценариев Саввы, см. scenarios/README.md
 ```
 
 - Приложение: http://localhost:8080

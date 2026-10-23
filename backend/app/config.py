@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://compass:compass@localhost:5433/compass"
     kb_dir: Path = REPO_ROOT / "kb"
+    scenarios_dir: Path = REPO_ROOT / "scenarios"
     ml_url: str = "http://localhost:8001"
 
     jwt_secret: str = "dev-secret-change-me"

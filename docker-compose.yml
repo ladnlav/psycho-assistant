@@ -21,11 +21,13 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-compass}:${POSTGRES_PASSWORD:-compass}@db:5432/${POSTGRES_DB:-compass}
       KB_DIR: /kb
+      SCENARIOS_DIR: /scenarios
       ML_URL: http://ml:8001
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
       SEED_PASSWORD: ${SEED_PASSWORD:-}
     volumes:
       - ./kb:/kb:ro
+      - ./scenarios:/scenarios:ro
     ports:
       - "8000:8000"
     depends_on:
