@@ -213,10 +213,18 @@ class PatientSummary(BaseModel):
     last_scores: dict[str, ScaleResult]
 
 
+class DiagnosisOut(BaseModel):
+    id: uuid.UUID
+    icd10: str
+    title: str
+    confirmed: bool = Field(description="подтверждён врачом")
+
+
 class PatientCard(BaseModel):
     id: uuid.UUID
     full_name: str
     birth_date: date | None
+    diagnoses: list[DiagnosisOut]
     scales: dict[str, list[ScaleResult]]
     diary: list[DiaryOut]
     prescriptions: list[PrescriptionOut]

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Alert as MAlert, Anchor, Badge, Button, Card, Group, NumberInput, SimpleGrid, Stack, Text, Textarea,
-  TextInput, Title } from '@mantine/core';
+  TextInput, Title, Tooltip } from '@mantine/core';
 import { LineChart } from '@mantine/charts';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
-import { api, type Alert, type PatientCard, type PrescriptionCheck, type Recommendation } from '../../api';
+import { api, type Alert, type Diagnosis, type PatientCard, type PrescriptionCheck, type Recommendation } from '../../api';
 import { AlertLevelBadge, ReferralBadge } from '../../components/Badges';
 import { Chat } from '../../components/Chat';
 import { DrugWarnings } from '../../components/DrugWarnings';
@@ -16,6 +16,22 @@ function deliverySeconds(a: Alert): string | null {
   if (!a.delivered_at) return null;
   const s = (new Date(a.delivered_at).getTime() - new Date(a.created_at).getTime()) / 1000;
   return s.toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+/** Диагнозы — справочная строка под ФИО: нейтральный серый, чтобы не спорить с алертами и направлениями. */
+function Diagnoses({ items }: { items: Diagnosis[] }) {
+  if (!items.length) return <Text size="sm" c="dimmed">Диагнозы не внесены</Text>;
+  return (
+    <Group gap="xs">
+      {items.map((d) => (
+        <Tooltip key={d.id} label={d.confirmed ? 'Подтверждён врачом' : 'Не подтверждён врачом'}>
+          <Badge size="lg" tt="none" color="gray" variant={d.confirmed ? 'light' : 'outline'}>
+            <b>{d.icd10}</b> {d.title}{d.confirmed ? '' : ' · не подтверждён'}
+          </Badge>
+        </Tooltip>
+      ))}
+    </Group>
+  );
 }
 
 function AlertsBlock({ card }: { card: PatientCard }) {
@@ -153,7 +169,10 @@ export function PatientCardPage() {
   return (
     <Stack>
       <Anchor component={Link} to="/doctor" size="sm">← Все пациенты</Anchor>
-      <Title order={2}>{card.full_name}</Title>
+      <Stack gap={6}>
+        <Title order={2}>{card.full_name}</Title>
+        <Diagnoses items={card.diagnoses} />
+      </Stack>
 
       <AlertsBlock card={card} />
 

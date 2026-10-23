@@ -70,10 +70,12 @@ export interface PatientSummary {
   id: string; full_name: string; open_alerts: number; top_alert_level: AlertLevel | null;
   last_scores: Record<string, ScaleResult>;
 }
+export interface Diagnosis { id: string; icd10: string; title: string; confirmed: boolean }
 export interface PatientCard {
   id: string;
   full_name: string;
   birth_date: string | null;
+  diagnoses: Diagnosis[];
   scales: Record<string, ScaleResult[]>;
   diary: DiaryEntry[];
   prescriptions: Prescription[];

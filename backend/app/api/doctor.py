@@ -7,11 +7,12 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.kb import KnowledgeBase, get_kb
-from app.models import (AdverseEvent, Alert, DiaryEntry, DoctorPatientLink, Invite, MedicationIntake, Message,
-                        PatientProfile, Prescription, Recommendation, Referral, ScaleResponse, User, utcnow)
-from app.schemas import (AdverseEventOut, AlertOut, Decision, DiaryOut, IntakeOut, InviteCreate, InviteOut,
-                         MessageIn, MessageOut, PatientCard, PatientSummary, PrescriptionCheck, PrescriptionIn,
-                         PrescriptionOut, RecommendationOut, ScaleResult, ScaleSubmit, ScaleSubmitResult)
+from app.models import (AdverseEvent, Alert, Diagnosis, DiaryEntry, DoctorPatientLink, Invite, MedicationIntake,
+                        Message, PatientProfile, Prescription, Recommendation, Referral, ScaleResponse, User, utcnow)
+from app.schemas import (AdverseEventOut, AlertOut, Decision, DiagnosisOut, DiaryOut, IntakeOut, InviteCreate,
+                         InviteOut, MessageIn, MessageOut, PatientCard, PatientSummary, PrescriptionCheck,
+                         PrescriptionIn, PrescriptionOut, RecommendationOut, ScaleResult, ScaleSubmit,
+                         ScaleSubmitResult)
 from app.security import ensure_own_patient, require_doctor
 from app.services.alerts import hub
 from app.services.audit import audit
@@ -78,6 +79,9 @@ def patient_card(patient_id: uuid.UUID, doctor: User = Depends(require_doctor), 
         id=patient_id,
         full_name=user.full_name,
         birth_date=profile.birth_date if profile else None,
+        diagnoses=[DiagnosisOut(id=d.id, icd10=d.icd10, title=d.title, confirmed=d.confirmed_by is not None)
+                   for d in db.scalars(select(Diagnosis).where(Diagnosis.patient_id == patient_id)
+                                       .order_by(Diagnosis.created_at, Diagnosis.icd10))],
         scales=scales,
         diary=[DiaryOut.model_validate(d) for d in db.scalars(
             select(DiaryEntry).where(DiaryEntry.patient_id == patient_id).order_by(DiaryEntry.day))],
