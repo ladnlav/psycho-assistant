@@ -114,6 +114,10 @@ class AdverseEventOut(ORM):
     created_at: datetime
 
 
+class AdverseEventSent(AdverseEventOut):
+    safety: SafetyScreen | None = None  # экран помощи, если в описании есть признаки риска (kb/rules)
+
+
 class PrescriptionIn(BaseModel):
     drug_id: str | None = Field(None, description="id из kb/drugs, если препарат там есть")
     drug_name: str
@@ -204,6 +208,10 @@ class MessageOut(ORM):
     sender_id: uuid.UUID
     body: str
     created_at: datetime
+
+
+class MessageSent(MessageOut):
+    safety: SafetyScreen | None = None  # экран помощи, если в сообщении есть признаки риска (kb/rules)
 
 
 class PatientSummary(BaseModel):

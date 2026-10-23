@@ -1,0 +1,13 @@
+id: free_text_risk
+title_ru: "Мысли о смерти или самоповреждении в словах пациента"
+level: critical
+status: draft            # TODO(Савва): сверить действия с КР. Словарь триажа — ml/app/triage.py (Матвей)
+# Текст размечает триаж ml-сервиса: сообщения врачу и описания нежелательных явлений (имя text.critical).
+when: "text.critical"
+actions: [notify_doctor, patient_safety_screen]
+propose:
+  - kind: referral
+    to: psychiatrist
+    level: mandatory
+    reason_ru: "Пациент написал о мыслях о смерти или о самоповреждении — нужна оценка суицидального риска психиатром"
+sources: [nimh_asq_tool, kr_depression]

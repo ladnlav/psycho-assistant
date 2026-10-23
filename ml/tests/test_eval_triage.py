@@ -37,3 +37,10 @@ def test_triage_side_effect_is_attention():
 
 def test_triage_neutral_message():
     assert triage_keywords("Всё хорошо, спасибо").level == "none"
+
+
+def test_triage_phrases_from_end_to_end_run():
+    """Прогон 23.10: описание побочного эффекта «Смерть умираю» система не заметила."""
+    for text in ("Смерть умираю", "Иногда хочу умереть", "лучше бы не просыпаться"):
+        assert triage_keywords(text).categories == ["suicidal_ideation"], text
+    assert "self_harm" in triage_keywords("Вчера опять наносила себе порезы").categories

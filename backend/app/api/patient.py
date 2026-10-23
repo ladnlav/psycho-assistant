@@ -8,12 +8,14 @@ from app.db import get_db
 from app.kb import KnowledgeBase, Scale, get_kb
 from app.models import (AdverseEvent, DiaryEntry, MedicationIntake, Message, Prescription, ScaleResponse, User,
                         utcnow)
-from app.schemas import (AdverseEventIn, AdverseEventOut, DiaryIn, DiaryOut, IntakeIn, IntakeOut, MessageIn,
-                         MessageOut, PrescriptionOut, SafetyScreen, ScaleSchedule, ScaleSubmit, ScaleSubmitResult)
+from app.schemas import (AdverseEventIn, AdverseEventOut, AdverseEventSent, DiaryIn, DiaryOut, IntakeIn, IntakeOut,
+                         MessageIn, MessageOut, MessageSent, PrescriptionOut, SafetyScreen, ScaleSchedule, ScaleSubmit,
+                         ScaleSubmitResult)
 from app.security import require_patient
 from app.services.alerts import apply_rules, hub
 from app.services.audit import audit
 from app.services.clinical import record_scale, safety_screen
+from app.services.triage import classify
 
 router = APIRouter(prefix="/api/patient", tags=["patient"])
 
@@ -111,18 +113,19 @@ def my_adverse_events(user: User = Depends(require_patient), db: Session = Depen
                       .order_by(AdverseEvent.created_at.desc()).limit(10)).all()
 
 
-@router.post("/adverse-events", response_model=AdverseEventOut)
+@router.post("/adverse-events", response_model=AdverseEventSent)
 def report_adverse_event(body: AdverseEventIn, tasks: BackgroundTasks, user: User = Depends(require_patient),
                          db: Session = Depends(get_db), kb: KnowledgeBase = Depends(get_kb)):
     ae = AdverseEvent(patient_id=user.id, description=body.description, severity=body.severity,
-                      serious=body.serious, reported_by=user.id)
+                      serious=body.serious, reported_by=user.id, triage=classify(body.description))
     db.add(ae)
     db.flush()
     audit(db, user.id, "adverse_event.reported", "adverse_event", ae.id, {"serious": body.serious})
     outcome = apply_rules(db, kb, user.id, trigger="adverse_event")
     db.commit()
     tasks.add_task(hub.push, outcome.push_ids)
-    return ae
+    return AdverseEventSent(**AdverseEventOut.model_validate(ae).model_dump(),
+                            safety=safety_screen(kb) if outcome.show_safety_screen else None)
 
 
 @router.get("/safety", response_model=SafetyScreen)
@@ -135,10 +138,14 @@ def list_messages(user: User = Depends(require_patient), db: Session = Depends(g
     return db.scalars(select(Message).where(Message.patient_id == user.id).order_by(Message.created_at)).all()
 
 
-@router.post("/messages", response_model=MessageOut)
-def send_message(body: MessageIn, user: User = Depends(require_patient), db: Session = Depends(get_db)):
-    # TODO: триаж сообщения через ml-service (/triage) → правило «тревожное сообщение»
-    msg = Message(patient_id=user.id, sender_id=user.id, body=body.body)
+@router.post("/messages", response_model=MessageSent)
+def send_message(body: MessageIn, tasks: BackgroundTasks, user: User = Depends(require_patient),
+                 db: Session = Depends(get_db), kb: KnowledgeBase = Depends(get_kb)):
+    msg = Message(patient_id=user.id, sender_id=user.id, body=body.body, triage=classify(body.body))
     db.add(msg)
+    db.flush()
+    outcome = apply_rules(db, kb, user.id, trigger="message")
     db.commit()
-    return msg
+    tasks.add_task(hub.push, outcome.push_ids)
+    return MessageSent(**MessageOut.model_validate(msg).model_dump(),
+                       safety=safety_screen(kb) if outcome.show_safety_screen else None)

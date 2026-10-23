@@ -192,6 +192,7 @@ class AdverseEvent(Base):
     severity: Mapped[str] = mapped_column(String(20))  # mild | moderate | severe
     serious: Mapped[bool] = mapped_column(Boolean, default=False)
     reported_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    triage: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # результат ml/triage по описанию
     created_at: Mapped[datetime] = _created()
 
 

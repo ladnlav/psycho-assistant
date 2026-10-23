@@ -1,22 +1,24 @@
 import { useState } from 'react';
 import { Button, Group, Paper, ScrollArea, Stack, Text, Textarea } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type Message } from '../api';
+import { api, type Message, type MessageSent, type SafetyScreen } from '../api';
 import { useAuth } from '../auth';
 import { formatDateTime } from '../labels';
 
 /** Чат врач–пациент. path: '/patient/messages' или '/doctor/patients/{id}/messages'.
+ *  onSafety — у пациента: сервер прислал экран помощи, потому что в сообщении есть признаки риска.
  *  TODO: WebSocket вместо опроса раз в 5 с. */
-export function Chat({ path }: { path: string }) {
+export function Chat({ path, onSafety }: { path: string; onSafety?: (safety: SafetyScreen) => void }) {
   const { me } = useAuth();
   const qc = useQueryClient();
   const [text, setText] = useState('');
   const { data = [] } = useQuery({ queryKey: ['messages', path], queryFn: () => api<Message[]>(path),
     refetchInterval: 5000 });
   const send = useMutation({
-    mutationFn: (body: string) => api<Message>(path, { body: { body } }),
-    onSuccess: () => {
+    mutationFn: (body: string) => api<MessageSent>(path, { body: { body } }),
+    onSuccess: (sent) => {
       setText('');
+      if (sent.safety) onSafety?.(sent.safety);
       qc.invalidateQueries({ queryKey: ['messages', path] });
     },
   });

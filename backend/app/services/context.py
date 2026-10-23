@@ -1,14 +1,15 @@
 """Контекст пациента, над которым вычисляются правила из kb/rules (см. kb/README.md)."""
 
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.kb import KnowledgeBase
-from app.models import AdverseEvent, DiaryEntry, MedicationIntake, Prescription, ScaleResponse, utcnow
+from app.models import (AdverseEvent, DiaryEntry, MedicationIntake, Message, Prescription, ScaleResponse,
+                        utcnow)
 from app.services.rules import RECORD
 
 
@@ -32,6 +33,21 @@ def _scale_context(db: Session, patient_id: uuid.UUID, scale_id: str, mcid: floa
         "delta_baseline": latest.total - first.total,
         RECORD: str(latest.id),
     }
+
+
+def _text_context(db: Session, patient_id: uuid.UUID, since: datetime) -> dict:
+    """Свободный текст пациента за 7 дней — сообщения врачу и описания НЯ — по разметке триажа (services/triage).
+
+    _record — последний текст с признаками риска: повтор старого не создаёт нового алерта, новый текст — создаёт.
+    """
+    texts = [
+        *db.execute(select(Message.id, Message.triage, Message.created_at).where(
+            Message.patient_id == patient_id, Message.sender_id == patient_id, Message.created_at >= since)),
+        *db.execute(select(AdverseEvent.id, AdverseEvent.triage, AdverseEvent.created_at).where(
+            AdverseEvent.patient_id == patient_id, AdverseEvent.created_at >= since)),
+    ]
+    critical = sorted((t for t in texts if (t.triage or {}).get("level") == "critical"), key=lambda t: t.created_at)
+    return {"critical": bool(critical), RECORD: str(critical[-1].id) if critical else None}
 
 
 MIN_PDC_DAYS = 3  # меньше трёх дней наблюдения — приверженность не оцениваем
@@ -81,6 +97,7 @@ def build_context(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID) -> dict
             select(func.count()).where(AdverseEvent.patient_id == patient_id, AdverseEvent.created_at >= week_ago)
         ),
     }
+    ctx["text"] = _text_context(db, patient_id, week_ago)
     ctx["pdc_7d"] = pdc_7d(db, patient_id, now.date())
     last_report = db.scalar(select(func.max(DiaryEntry.day)).where(DiaryEntry.patient_id == patient_id))
     ctx["days_since_report"] = (now.date() - last_report).days if last_report else None

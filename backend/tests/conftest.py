@@ -16,6 +16,25 @@ def _foreign_keys(dbapi_connection, _record):
     dbapi_connection.execute("PRAGMA foreign_keys=ON")
 
 
+RISKY_WORDS = ("умереть", "умираю")
+
+
+@pytest.fixture(autouse=True)
+def triage(monkeypatch):
+    """ml-сервис в тестах не поднят: подменяем его триаж. state["down"] = True — ml-сервис не ответил."""
+    state = {"down": False}
+
+    def fake(text: str):
+        if state["down"]:
+            return None
+        risky = any(w in text.lower() for w in RISKY_WORDS)
+        return {"level": "critical" if risky else "none", "categories": ["suicidal_ideation"] if risky else [],
+                "matches": [], "method": "test"}
+
+    monkeypatch.setattr("app.api.patient.classify", fake)
+    return state
+
+
 @pytest.fixture()
 def client():
     Base.metadata.create_all(engine)

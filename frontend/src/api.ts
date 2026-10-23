@@ -39,6 +39,8 @@ export interface DiaryEntry {
   id: string; day: string; anxiety: number; mood: number; sleep_quality: number | null; note: string | null;
 }
 export interface AdverseEvent { id: string; description: string; severity: string; serious: boolean; created_at: string }
+/** Ответ на отправку пациентом: экран помощи, если в тексте есть признаки риска (kb/rules/free_text_risk). */
+export interface AdverseEventSent extends AdverseEvent { safety: SafetyScreen | null }
 export interface Prescription {
   id: string; drug_id: string | null; drug_name: string; dose_mg: number | null; frequency: string | null;
   start_date: string; active: boolean;
@@ -88,6 +90,7 @@ export interface PatientCard {
 }
 export interface Invite { code: string; patient_label: string | null; created_at: string; used_at: string | null }
 export interface Message { id: string; sender_id: string; body: string; created_at: string }
+export interface MessageSent extends Message { safety?: SafetyScreen | null } // safety — только у пациента
 export interface Source { id: string; type: string; title: string; url: string | null; verified: boolean; note: string | null }
 
 const TOKEN_KEY = 'compass_token';

@@ -3,8 +3,8 @@ import { Badge, Button, Card, Checkbox, Group, SegmentedControl, SimpleGrid, Sli
   Title } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router';
-import { api, type AdverseEvent, type DiaryEntry, type Intake, type Prescription, type SafetyScreen, type Scale,
-  type ScaleSchedule } from '../../api';
+import { api, type AdverseEvent, type AdverseEventSent, type DiaryEntry, type Intake, type Prescription,
+  type SafetyScreen, type Scale, type ScaleSchedule } from '../../api';
 import { useAuth } from '../../auth';
 import { Chat } from '../../components/Chat';
 import { Done } from '../../components/Done';
@@ -153,7 +153,7 @@ function ScalesCard() {
   );
 }
 
-function AdverseEventCard() {
+function AdverseEventCard({ onSafety }: { onSafety: (safety: SafetyScreen) => void }) {
   const qc = useQueryClient();
   const { data: sent = [] } = useQuery({
     queryKey: ['my-adverse-events'], queryFn: () => api<AdverseEvent[]>('/patient/adverse-events'),
@@ -163,8 +163,9 @@ function AdverseEventCard() {
   const [serious, setSerious] = useState(false);
   const [lastSent, setLastSent] = useState<AdverseEvent | null>(null);
   const send = useMutation({
-    mutationFn: () => api<AdverseEvent>('/patient/adverse-events', { body: { description, severity, serious } }),
+    mutationFn: () => api<AdverseEventSent>('/patient/adverse-events', { body: { description, severity, serious } }),
     onSuccess: (ae) => {
+      if (ae.safety) onSafety(ae.safety); // в описании есть признаки риска — сразу экран помощи
       setDescription('');
       setSeverity('mild');
       setSerious(false);
@@ -226,10 +227,10 @@ export function PatientHome() {
           <MedicationCard />
           <ScalesCard />
         </Stack>
-        <AdverseEventCard />
+        <AdverseEventCard onSafety={setSafety} />
         <Card withBorder radius="md">
           <Title order={4} mb="sm">Чат с врачом</Title>
-          <Chat path="/patient/messages" />
+          <Chat path="/patient/messages" onSafety={setSafety} />
         </Card>
       </SimpleGrid>
       <SafetyModal safety={safety} onClose={() => setSafety(null)} />
