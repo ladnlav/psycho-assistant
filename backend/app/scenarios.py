@@ -5,6 +5,7 @@
 
 Нужен демо-врач из app.seed; пароль пациентов сценариев — SEED_PASSWORD. Даты считаются от сегодняшнего дня:
 последняя неделя сценария заканчивается вчера, а сегодняшний день пустой — его показывают на демо.
+С last_report_days_ago > 1 история кончается раньше: пациент перестал вести записи (правила C9).
 Формат файла — scenarios/README.md.
 """
 
@@ -25,7 +26,7 @@ from app.kb import KnowledgeBase, Scale, get_kb
 from app.models import (AdverseEvent, Alert, Consent, Diagnosis, DiaryEntry, DoctorPatientLink, MedicationIntake,
                         Message, PatientProfile, Prescription, Recommendation, Referral, ScaleResponse, User, utcnow)
 from app.security import hash_password
-from app.services.alerts import apply_rules
+from app.services.alerts import apply_rules, timed_rules
 from app.services.audit import audit
 from app.services.scoring import score
 
@@ -85,6 +86,7 @@ class Scenario(BaseModel):
     past_medications: list[str] = []
     prescribe_aviandr: bool = False
     aviandr_dose_mg: float | None = None
+    last_report_days_ago: int = Field(1, ge=1)  # 1 — последняя запись вчера; больше — пациент перестал писать (C9)
     weeks: list[Week] = []
     expected: dict[str, str] = {}
 
@@ -157,7 +159,8 @@ def load_scenario(db: Session, kb: KnowledgeBase, sc: Scenario, doctor: User, pa
     db.flush()
 
     weeks = (sc.weeks[-1].week + 1) if sc.weeks else 0
-    start = today - timedelta(days=7 * weeks)
+    end = today - timedelta(days=sc.last_report_days_ago - 1)  # первый день без записей
+    start = end - timedelta(days=7 * weeks)
     for d in sc.diagnoses:
         db.add(Diagnosis(patient_id=user.id, icd10=d.icd10, title=d.title, confirmed_by=doctor.id))
     for name in sc.past_medications:  # до назначения Авиандра, уже отменены
@@ -196,8 +199,13 @@ def load_scenario(db: Session, kb: KnowledgeBase, sc: Scenario, doctor: User, pa
         for text in w.messages:
             db.add(Message(patient_id=user.id, sender_id=user.id, body=text, created_at=_at(first + timedelta(days=2), 18)))
     db.flush()
-    # Алерты по итоговому состоянию — как если бы пациент только что прислал последние данные.
-    apply_rules(db, kb, user.id, trigger=f"scenario:{sc.id}")
+    # Алерты по итоговому состоянию — как если бы пациент только что прислал последние данные. Если с тех пор
+    # пациент молчит, правила отработали в день последней записи, а дальше — только проверка по расписанию:
+    # иначе у молчащего пациента без отметок приёма сработала бы ещё и «низкая приверженность».
+    silent_since = _at(end - timedelta(days=1), 21) if sc.last_report_days_ago > 1 else None
+    apply_rules(db, kb, user.id, trigger=f"scenario:{sc.id}", now=silent_since)
+    if silent_since:
+        apply_rules(db, kb, user.id, trigger="schedule", rules=timed_rules(kb))
     audit(db, doctor.id, "scenario.loaded", "patient", user.id, {"scenario": sc.id, "reset": reset})
     return user
 

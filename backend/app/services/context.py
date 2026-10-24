@@ -98,8 +98,10 @@ def last_report(db: Session, patient_id: uuid.UUID) -> date | None:
     return last.date() if last else None
 
 
-def build_context(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID) -> dict[str, Any]:
-    now = utcnow()
+def build_context(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID,
+                  now: datetime | None = None) -> dict[str, Any]:
+    """`now` — на какой момент считать контекст; по умолчанию сейчас (другой — для демо-сценариев)."""
+    now = now or utcnow()
     week_ago = now - timedelta(days=7)
     ctx: dict[str, Any] = {
         sid: _scale_context(db, patient_id, sid, scale.mcid) for sid, scale in kb.scales.items()

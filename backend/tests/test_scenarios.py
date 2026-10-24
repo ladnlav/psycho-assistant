@@ -11,6 +11,7 @@ from app.db import SessionLocal
 from app.kb import get_kb
 from app.models import Alert, DiaryEntry, Prescription, ScaleResponse, User, utcnow
 from app.scenarios import Scenario, answers_for, load_scenario, read_scenarios
+from app.services.alerts import check_all_patients, patient_reminders
 from tests.conftest import auth
 
 KB = get_kb()
@@ -70,3 +71,20 @@ def test_load_scenario(client, doctor_token):
 
     names = [p["full_name"] for p in client.get("/api/doctor/patients", headers=auth(doctor_token)).json()]
     assert "Тест: женщина, 34 года" in names
+
+
+def test_silent_patient_scenario_shows_c9(client, doctor_token):
+    """Сценарий 5: записи кончились 6 дней назад — напоминание пациентке и алерт врачу, без «низкой приверженности»."""
+    sc = read_scenarios(get_settings().scenarios_dir)["s5"]
+    today = utcnow().date()
+    with SessionLocal() as db:
+        doctor = db.scalar(select(User).where(User.email == "doc@example.com"))
+        pid = load_scenario(db, KB, sc, doctor, "test-password", today).id
+        db.commit()
+        last = db.scalar(select(func.max(DiaryEntry.day)).where(DiaryEntry.patient_id == pid))
+        assert last == today - timedelta(days=6)
+        alerts = db.scalars(select(Alert).where(Alert.patient_id == pid)).all()
+        assert [(a.rule_id, a.trigger) for a in alerts] == [("no_reports_5d", "schedule")]
+        assert "no_reports_3d" in [rid for rid, _ in patient_reminders(db, KB, pid)]
+        with SessionLocal() as other:
+            assert check_all_patients(other, KB) == [], "проверка по расписанию не повторяет алерт"

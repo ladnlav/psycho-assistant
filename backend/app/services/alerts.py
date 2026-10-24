@@ -13,7 +13,7 @@ import uuid
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import timezone
+from datetime import datetime, timezone
 
 from fastapi import WebSocket
 from sqlalchemy import select
@@ -63,7 +63,7 @@ def has_pending_proposal(db: Session, patient_id: uuid.UUID, rule_id: str, kind:
 
 
 def apply_rules(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, trigger: str,
-                rules: Iterable[Rule] | None = None) -> RulesOutcome:
+                rules: Iterable[Rule] | None = None, now: datetime | None = None) -> RulesOutcome:
     """Вычисляет правила по свежим данным пациента и реагирует только на новые данные.
 
     Правило смотрит на состояние, поэтому срабатывает при каждой записи пациента. У алерта хранится отпечаток
@@ -73,7 +73,7 @@ def apply_rules(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, trigger: 
     """
     outcome = RulesOutcome()
     doctor_id = lead_doctor_id(db, patient_id)
-    context = build_context(db, kb, patient_id)
+    context = build_context(db, kb, patient_id, now)
     for rule in evaluate(kb.rules.values() if rules is None else rules, context):
         ev = evidence(rule, context)
         last = db.scalar(
