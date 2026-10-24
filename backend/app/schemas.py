@@ -212,10 +212,15 @@ class MessageIn(BaseModel):
     body: str = Field(min_length=1, max_length=4000)
 
 
+class HelpIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)  # что случилось — своими словами
+
+
 class MessageOut(ORM):
     id: uuid.UUID
     sender_id: uuid.UUID
     body: str
+    kind: str = "chat"  # chat | help — просьба о срочной помощи
     created_at: datetime
 
 

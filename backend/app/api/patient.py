@@ -8,7 +8,7 @@ from app.db import get_db
 from app.kb import KnowledgeBase, Scale, get_kb
 from app.models import (AdverseEvent, DiaryEntry, MedicationIntake, Message, Prescription, ScaleResponse, User,
                         utcnow)
-from app.schemas import (AdverseEventIn, AdverseEventOut, AdverseEventSent, DiaryIn, DiaryOut, IntakeIn, IntakeOut,
+from app.schemas import (AdverseEventIn, AdverseEventOut, AdverseEventSent, DiaryIn, DiaryOut, HelpIn, IntakeIn, IntakeOut,
                          MessageIn, MessageOut, MessageSent, PrescriptionOut, Reminder, SafetyScreen, ScaleSchedule,
                          ScaleSubmit, ScaleSubmitResult)
 from app.security import require_patient
@@ -125,12 +125,27 @@ def report_adverse_event(body: AdverseEventIn, tasks: BackgroundTasks, user: Use
     db.commit()
     tasks.add_task(hub.push, outcome.push_ids)
     return AdverseEventSent(**AdverseEventOut.model_validate(ae).model_dump(),
-                            safety=safety_screen(kb) if outcome.show_safety_screen else None)
+                            safety=safety_screen(kb, bool(outcome.push_ids)) if outcome.show_safety_screen else None)
 
 
 @router.get("/safety", response_model=SafetyScreen)
 def get_safety(user: User = Depends(require_patient), kb: KnowledgeBase = Depends(get_kb)):
     return safety_screen(kb)
+
+
+@router.post("/help", response_model=MessageSent)
+def ask_for_help(body: HelpIn, tasks: BackgroundTasks, user: User = Depends(require_patient),
+                 db: Session = Depends(get_db), kb: KnowledgeBase = Depends(get_kb)):
+    """Кнопка «Нужна срочная помощь»: экран 112/103 пациент видит сразу, а после того как напишет, что
+    случилось, причина уходит врачу — сообщением в чат и алертом (правило patient_help_request)."""
+    msg = Message(patient_id=user.id, sender_id=user.id, body=body.reason, kind="help", triage=classify(body.reason))
+    db.add(msg)
+    db.flush()
+    audit(db, user.id, "help_request.created", "message", msg.id)
+    outcome = apply_rules(db, kb, user.id, trigger="help_request")
+    db.commit()
+    tasks.add_task(hub.push, outcome.push_ids)
+    return MessageSent(**MessageOut.model_validate(msg).model_dump(), safety=safety_screen(kb, bool(outcome.push_ids)))
 
 
 @router.get("/reminders", response_model=list[Reminder])
@@ -155,4 +170,4 @@ def send_message(body: MessageIn, tasks: BackgroundTasks, user: User = Depends(r
     db.commit()
     tasks.add_task(hub.push, outcome.push_ids)
     return MessageSent(**MessageOut.model_validate(msg).model_dump(),
-                       safety=safety_screen(kb) if outcome.show_safety_screen else None)
+                       safety=safety_screen(kb, bool(outcome.push_ids)) if outcome.show_safety_screen else None)

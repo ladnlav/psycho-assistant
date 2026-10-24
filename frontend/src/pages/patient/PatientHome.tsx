@@ -224,6 +224,8 @@ function Reminders() {
 export function PatientHome() {
   const { me } = useAuth();
   const [safety, setSafety] = useState<SafetyScreen | null>(null);
+  const [askReason, setAskReason] = useState(false); // экран открыт кнопкой — можно написать врачу, что случилось
+  const showSafety = (screen: SafetyScreen) => { setAskReason(false); setSafety(screen); };
   return (
     <Stack>
       <Group justify="space-between">
@@ -231,7 +233,7 @@ export function PatientHome() {
           <Title order={2}>Здравствуйте, {me?.full_name}</Title>
           {me?.doctor_name && <Text c="dimmed">Ваш врач: {me.doctor_name}</Text>}
         </div>
-        <Button color="red" variant="light" onClick={async () => setSafety(await api<SafetyScreen>('/patient/safety'))}>
+        <Button color="red" variant="light" onClick={async () => { setAskReason(true); setSafety(await api<SafetyScreen>('/patient/safety')); }}>
           Нужна срочная помощь
         </Button>
       </Group>
@@ -242,13 +244,13 @@ export function PatientHome() {
           <MedicationCard />
           <ScalesCard />
         </Stack>
-        <AdverseEventCard onSafety={setSafety} />
+        <AdverseEventCard onSafety={showSafety} />
         <Card withBorder radius="md">
           <Title order={4} mb="sm">Чат с врачом</Title>
-          <Chat path="/patient/messages" onSafety={setSafety} />
+          <Chat path="/patient/messages" onSafety={showSafety} />
         </Card>
       </SimpleGrid>
-      <SafetyModal safety={safety} onClose={() => setSafety(null)} />
+      <SafetyModal safety={safety} askReason={askReason} onClose={() => setSafety(null)} />
     </Stack>
   );
 }

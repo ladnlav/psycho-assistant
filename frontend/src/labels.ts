@@ -74,6 +74,7 @@ export function triggerLabel(trigger: string | null): string {
     adverse_event: 'сообщение о нежелательном явлении',
     message: 'сообщение врачу',
     schedule: 'проверка по расписанию',
+    help_request: 'просьба пациента о помощи',
   } as Record<string, string>)[trigger] ?? trigger;
 }
 
@@ -94,6 +95,7 @@ export function evidenceRows(evidence: Record<string, string | number | boolean 
     if (key === 'ae.serious_7d') return { label: 'Серьёзных нежелательных явлений за 7 дней', value };
     if (key === 'ae.any_7d') return { label: 'Нежелательных явлений за 7 дней', value };
     if (key === 'text.critical') return { label: 'Текст пациента с признаками риска', value };
+    if (key === 'help.requests_24h') return { label: 'Просьб о срочной помощи за сутки', value };
     const [root, field] = key.split('.');
     if (SCALE_NAME[root] && field) {
       const item = field.match(/^item(\d+)$/);

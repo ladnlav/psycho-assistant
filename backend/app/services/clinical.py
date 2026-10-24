@@ -11,9 +11,10 @@ from app.services.audit import audit
 from app.services.scoring import ScoringError, score
 
 
-def safety_screen(kb: KnowledgeBase) -> SafetyScreen:
+def safety_screen(kb: KnowledgeBase, doctor_notified: bool = False) -> SafetyScreen:
+    """Экран помощи. Фраза «врач получил уведомление» — только если алерт врачу действительно ушёл."""
     return SafetyScreen(
-        message_ru=kb.safety.message_ru,
+        message_ru=kb.safety.message_ru + (f" {kb.safety.doctor_notified_ru}" if doctor_notified else ""),
         contacts=[c.model_dump() for c in kb.safety.contacts],
     )
 
@@ -43,7 +44,7 @@ def record_scale(
         ScaleSubmitResult(
             result=ScaleResult.model_validate(row),
             severity_label_ru=result.severity_label_ru,
-            safety=safety_screen(kb) if outcome.show_safety_screen else None,
+            safety=safety_screen(kb, bool(outcome.push_ids)) if outcome.show_safety_screen else None,
         ),
         outcome,
     )

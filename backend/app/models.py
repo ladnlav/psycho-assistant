@@ -269,6 +269,7 @@ class Message(Base):
     patient_id: Mapped[uuid.UUID] = _patient_fk()
     sender_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     body: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String(20), default="chat", server_default="chat")  # chat | help — просьба о помощи
     triage: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # результат ml/triage
     created_at: Mapped[datetime] = _created()
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

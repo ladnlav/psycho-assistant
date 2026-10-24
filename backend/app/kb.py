@@ -187,6 +187,7 @@ class SafetyContact(BaseModel):
 
 class Safety(BaseModel):
     message_ru: str
+    doctor_notified_ru: str  # добавляется к message_ru, только если врачу ушёл алерт
     contacts: list[SafetyContact]
 
 

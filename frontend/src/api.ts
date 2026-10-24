@@ -94,7 +94,10 @@ export interface PatientCard {
   recommendations: Recommendation[];
 }
 export interface Invite { code: string; patient_label: string | null; created_at: string; used_at: string | null }
-export interface Message { id: string; sender_id: string; body: string; created_at: string }
+export interface Message {
+  id: string; sender_id: string; body: string; created_at: string;
+  kind: 'chat' | 'help'; // help — просьба о срочной помощи с причиной (кнопка «Нужна срочная помощь»)
+}
 export interface MessageSent extends Message { safety?: SafetyScreen | null } // safety — только у пациента
 export interface Source { id: string; type: string; title: string; url: string | null; verified: boolean; note: string | null }
 

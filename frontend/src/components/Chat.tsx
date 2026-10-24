@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Group, Paper, ScrollArea, Stack, Text, Textarea } from '@mantine/core';
+import { Badge, Button, Group, Paper, ScrollArea, Stack, Text, Textarea } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Message, type MessageSent, type SafetyScreen } from '../api';
 import { useAuth } from '../auth';
@@ -32,7 +32,9 @@ export function Chat({ path, onSafety }: { path: string; onSafety?: (safety: Saf
             const mine = m.sender_id === me?.id;
             return (
               <Group key={m.id} justify={mine ? 'flex-end' : 'flex-start'}>
-                <Paper p="xs" radius="md" bg={mine ? 'violet.0' : 'gray.0'} maw="80%">
+                <Paper p="xs" radius="md" bg={m.kind === 'help' ? 'red.0' : mine ? 'violet.0' : 'gray.0'} maw="80%"
+                  withBorder={m.kind === 'help'} style={m.kind === 'help' ? { borderColor: 'var(--mantine-color-red-6)' } : undefined}>
+                  {m.kind === 'help' && <Badge color="red" size="sm" mb={4}>Просьба о срочной помощи</Badge>}
                   <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>{m.body}</Text>
                   <Text size="xs" c="dimmed" ta="right">{formatDateTime(m.created_at)}</Text>
                 </Paper>

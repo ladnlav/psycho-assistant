@@ -50,6 +50,15 @@ def _text_context(db: Session, patient_id: uuid.UUID, since: datetime) -> dict:
     return {"critical": bool(critical), RECORD: str(critical[-1].id) if critical else None}
 
 
+def _help_context(db: Session, patient_id: uuid.UUID, since: datetime) -> dict:
+    """Просьбы о срочной помощи с причиной за сутки (кнопка «Нужна срочная помощь»).
+    _record — последняя просьба: новая просьба — новые данные для алерта, повтор старой — нет."""
+    ids = db.scalars(select(Message.id).where(
+        Message.patient_id == patient_id, Message.sender_id == patient_id, Message.kind == "help",
+        Message.created_at >= since).order_by(Message.created_at)).all()
+    return {"requests_24h": len(ids), RECORD: str(ids[-1]) if ids else None}
+
+
 MIN_PDC_DAYS = 3  # меньше трёх дней наблюдения — приверженность не оцениваем
 
 
@@ -119,6 +128,7 @@ def build_context(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID,
         ),
     }
     ctx["text"] = _text_context(db, patient_id, week_ago)
+    ctx["help"] = _help_context(db, patient_id, now - timedelta(days=1))
     ctx["pdc_7d"] = pdc_7d(db, patient_id, now.date())
     last = last_report(db, patient_id)
     ctx["days_since_report"] = (now.date() - last).days if last else None
