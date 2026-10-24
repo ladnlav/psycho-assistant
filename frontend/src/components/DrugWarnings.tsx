@@ -24,6 +24,7 @@ export function DrugWarnings({ warnings, acked, onAck }: {
               </Text>
             </Group>
             <Text size="sm">{capitalize(w.text_ru)}</Text>
+            {w.check_ru && <Text size="xs" mt={2}><b>Что проверить:</b> {w.check_ru}</Text>}
             <Text size="xs" c="dimmed" mb={4}>Инструкция, раздел «{w.section_ru}»</Text>
             <Sources ids={w.sources} />
             <Checkbox mt={6} size="xs" checked={!!acked[w.id]} onChange={(e) => onAck(w.id, e.currentTarget.checked)}

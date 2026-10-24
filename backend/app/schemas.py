@@ -135,6 +135,7 @@ class DrugWarning(BaseModel):
     text_ru: str
     section_ru: str
     detail_ru: str | None = None
+    check_ru: str | None = None  # чем подтвердить или исключить пункт: анализы, осмотр (kb/drugs)
     requires_reason: bool = False
     sources: list[str] = []
 

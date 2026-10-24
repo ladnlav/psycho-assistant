@@ -115,7 +115,7 @@ def check(drug: Drug, facts: PatientFacts, sources: list[str] | None = None) -> 
             hard = kind == "contraindication" or item.severity == "contraindicated"
             out.append(DrugWarning(
                 id=item.id, kind=kind, status=status, text_ru=item.text_ru, section_ru=SECTION_RU[kind],
-                detail_ru=detail, requires_reason=hard and status == "fired", sources=sources,
+                detail_ru=detail, check_ru=item.check_ru, requires_reason=hard and status == "fired", sources=sources,
             ))
     order = {"fired": 0, "unchecked": 1, "manual": 2}
     return sorted(out, key=lambda w: order[w.status])  # sorted() устойчива: внутри статуса порядок инструкции

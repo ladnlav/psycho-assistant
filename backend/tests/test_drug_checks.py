@@ -18,7 +18,8 @@ TEST_DRUG = Drug(
     contraindications=[
         DrugCheck(id="pregnancy", text_ru="Беременность", when="dx('O', 'Z33')"),
         DrugCheck(id="children", text_ru="Возраст до 18 лет", when="age < 18"),
-        DrugCheck(id="hypersensitivity", text_ru="Повышенная чувствительность к компонентам"),
+        DrugCheck(id="hypersensitivity", text_ru="Повышенная чувствительность к компонентам",
+                  check_ru="аллергологический анамнез"),
     ],
     caution=[DrugCheck(id="elderly", text_ru="Возраст старше 65 лет", when="age >= 65")],
     interactions=[DrugCheck(id="maoi", text_ru="Ингибиторы МАО", when="taking('моклобемид')",
@@ -34,6 +35,11 @@ def statuses(facts: PatientFacts) -> dict[str, str]:
 
 def test_manual_items_always_shown():
     assert statuses(PatientFacts(age=30, sex="female")) == {"hypersensitivity": "manual"}
+
+
+def test_what_to_check_reaches_doctor():
+    [w] = check(TEST_DRUG, PatientFacts(age=30, sex="female"))
+    assert w.check_ru == "аллергологический анамнез"
 
 
 def test_findings_from_card_come_first_and_need_reason():

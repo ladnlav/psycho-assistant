@@ -122,11 +122,13 @@ DRUG_CHECK_NAMES = {"age", "sex", "dx", "taking"}
 class DrugCheck(BaseModel):
     """Пункт инструкции из ГРЛС: противопоказание, «с осторожностью» или взаимодействие.
     Без `when` пункт не проверяется автоматически — врач подтверждает его сам. `ask` — показать врачу
-    «проверьте у пациента», даже если в карточке ничего не найдено (true или условие, например sex == 'female')."""
+    «проверьте у пациента», даже если в карточке ничего не найдено (true или условие, например sex == 'female').
+    `check_ru` — чем врачу подтвердить или исключить пункт: анализы, осмотр."""
     id: str
     text_ru: str
     when: str | None = None
     ask: bool | str = False
+    check_ru: str | None = None
     severity: Literal["contraindicated", "caution"] | None = None  # только для взаимодействий
 
     @model_validator(mode="after")
