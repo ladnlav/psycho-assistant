@@ -1,0 +1,63 @@
+# Сценарий 2 — ответ на терапию Авиандром. Пациент вымышленный.
+# Черновик команды 24.10 по темам задачи S6. TODO(Савва): проверить правдоподобие.
+id: s2
+title_ru: "ГТР: ответ на терапию Авиандром за 4 недели"
+status: draft
+author_ru: "черновик команды 24.10, на проверке у Саввы"
+show_ru: "Снижение GAD-7 на 4 балла и больше (MCID) — врач видит ответ на терапию по шкалам и дневнику, алертов нет"
+complaints_ru: "Постоянное беспокойство, напряжение, трудности засыпания около полугода"
+
+patient:
+  full_name: "Сценарий 2: женщина, 41 год"
+  email: scenario2@example.com
+  sex: female
+  age: 41
+
+diagnoses:
+  - { icd10: "F41.1", title: "Генерализованное тревожное расстройство" }
+
+prescribe_aviandr: true
+aviandr_dose_mg: 20                # инструкция ГРЛС: по 20 мг 2 раза в сутки
+weeks:
+  - week: 0
+    anxiety: 8
+    mood: 4
+    sleep: 4
+    gad7: 16
+    phq9: 9
+    phq9_item9: 0
+    intake_days: 7
+    expected_ru: "Старт Авиандра. GAD-7 16 — выраженная тревога"
+  - week: 1
+    anxiety: 7
+    mood: 5
+    sleep: 4
+    intake_days: 7
+    adverse_events: [{ description: "Сонливость днём в первые дни приёма", severity: mild }]
+    expected_ru: "Сонливость — частая реакция по инструкции; лёгкая, не серьёзная — алерта нет"
+  - week: 2
+    anxiety: 6
+    mood: 5
+    sleep: 5
+    gad7: 12
+    phq9: 7
+    phq9_item9: 0
+    intake_days: 7
+    expected_ru: "GAD-7 12: минус 4 от исходного — клинически значимое улучшение"
+  - week: 3
+    anxiety: 5
+    mood: 6
+    sleep: 6
+    intake_days: 6
+  - week: 4
+    anxiety: 4
+    mood: 6
+    sleep: 6
+    gad7: 9
+    phq9: 5
+    phq9_item9: 0
+    intake_days: 7
+    expected_ru: "GAD-7 9: минус 7 от исходного — ответ на терапию; врач продолжает лечение"
+
+expected:
+  referral_ru: "Не требуется: ответ на терапию"
