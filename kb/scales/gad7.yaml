@@ -2,26 +2,33 @@ id: gad7
 name: GAD-7
 title_ru: "Шкала генерализованного тревожного расстройства (GAD-7)"
 rater: patient
-status: draft            # draft → validated после проверки Саввой
+status: validated        # тексты из статей Золотарёвой окончательные (решение 24.10)
 schedule_days: 14
 
 instruction_en: "Over the last 2 weeks, how often have you been bothered by the following problems?"
-instruction_ru: null     # TODO(Савва): перенести и сверить текст из zolotareva2023_gad7_ru, приложение, с. 39
+# Русский текст — дословно из zolotareva2023_gad7_ru, приложение, с. 39 (перенесено 24.10). Из инструкции взято первое
+# предложение: шкалу ответов пациент видит у каждого вопроса. В КР 457_3 (приложение Г2) текст другой, хотя ссылается
+# на эту же статью; взят текст статьи — тот, что валидирован.
+instruction_ru: "Оцените, пожалуйста, насколько часто следующие проблемы беспокоили вас в течение прошедших двух недель."
 
 options:
-  - { value: 0, label_en: "Not at all", label_ru: null }
-  - { value: 1, label_en: "Several days", label_ru: null }
-  - { value: 2, label_en: "More than half the days", label_ru: null }
-  - { value: 3, label_en: "Nearly every day", label_ru: null }
+  - { value: 0, label_en: "Not at all", label_ru: "Совсем нет" }
+  - { value: 1, label_en: "Several days", label_ru: "В течение нескольких дней" }
+  - { value: 2, label_en: "More than half the days", label_ru: "Более чем половину этого времени" }
+  - { value: 3, label_en: "Nearly every day", label_ru: "Почти каждый день" }
 
 items:
-  - { id: item1, text_en: "Feeling nervous, anxious, or on edge", text_ru: null }
-  - { id: item2, text_en: "Not being able to stop or control worrying", text_ru: null }
-  - { id: item3, text_en: "Worrying too much about different things", text_ru: null }
-  - { id: item4, text_en: "Trouble relaxing", text_ru: null }
-  - { id: item5, text_en: "Being so restless that it is hard to sit still", text_ru: null }
-  - { id: item6, text_en: "Becoming easily annoyed or irritable", text_ru: null }
-  - { id: item7, text_en: "Feeling afraid, as if something awful might happen", text_ru: null }
+  - { id: item1, text_en: "Feeling nervous, anxious, or on edge", text_ru: "Чувство тревоги или раздражения" }
+  - { id: item2, text_en: "Not being able to stop or control worrying",
+      text_ru: "Неспособность справиться со своим беспокойством" }
+  - { id: item3, text_en: "Worrying too much about different things", text_ru: "Чрезмерное беспокойство по разным поводам" }
+  - { id: item4, text_en: "Trouble relaxing", text_ru: "Неспособность расслабляться" }
+  - { id: item5, text_en: "Being so restless that it is hard to sit still",
+      text_ru: "Ощущение такого беспокойства, что трудно найти себе место" }
+  - { id: item6, text_en: "Becoming easily annoyed or irritable",
+      text_ru: "Склонность быстро испытывать злость или раздражительность" }
+  - { id: item7, text_en: "Feeling afraid, as if something awful might happen",
+      text_ru: "Чувство страха, как будто может случиться что-то ужасное" }
 
 severity:
   - { min: 0,  max: 4,  level: minimal,  label_ru: "минимальная тревога" }
@@ -43,4 +50,4 @@ validation_ru:
   source: zolotareva2023_gad7_ru
 
 sources: [spitzer2006_gad7, toussaint2020_gad7_mcid, zolotareva2023_gad7_ru, vrublevska2022_gad7_lv,
-          zinchuk2021_gad7_epilepsy]
+          zinchuk2021_gad7_epilepsy, kr_gad]

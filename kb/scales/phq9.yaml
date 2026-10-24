@@ -2,28 +2,37 @@ id: phq9
 name: PHQ-9
 title_ru: "Опросник здоровья пациента (PHQ-9)"
 rater: patient
-status: draft
+status: validated
 schedule_days: 14
 
 instruction_en: "Over the last 2 weeks, how often have you been bothered by any of the following problems?"
-instruction_ru: null     # TODO(Савва): перенести и сверить текст из zolotareva2023_phq9_ru, приложение, с. 121
+# Русский текст — дословно из zolotareva2023_phq9_ru, приложение, с. 121 (перенесено 24.10). Из инструкции взято первое
+# предложение: шкалу ответов пациент видит у каждого вопроса. В статье «более, чем половину» — запятая убрана, как в
+# её же статье о GAD-7, чтобы ответы обеих шкал совпадали. В КР 301_3 PHQ-9 нет.
+instruction_ru: "Оцените, пожалуйста, насколько часто следующие проблемы беспокоили вас в течение прошедших двух недель."
 
 options:
-  - { value: 0, label_en: "Not at all", label_ru: null }
-  - { value: 1, label_en: "Several days", label_ru: null }
-  - { value: 2, label_en: "More than half the days", label_ru: null }
-  - { value: 3, label_en: "Nearly every day", label_ru: null }
+  - { value: 0, label_en: "Not at all", label_ru: "Совсем нет" }
+  - { value: 1, label_en: "Several days", label_ru: "В течение нескольких дней" }
+  - { value: 2, label_en: "More than half the days", label_ru: "Более чем половину этого времени" }
+  - { value: 3, label_en: "Nearly every day", label_ru: "Почти каждый день" }
 
 items:
-  - { id: item1, text_en: "Little interest or pleasure in doing things", text_ru: null }
-  - { id: item2, text_en: "Feeling down, depressed, or hopeless", text_ru: null }
-  - { id: item3, text_en: "Trouble falling or staying asleep, or sleeping too much", text_ru: null }
-  - { id: item4, text_en: "Feeling tired or having little energy", text_ru: null }
-  - { id: item5, text_en: "Poor appetite or overeating", text_ru: null }
-  - { id: item6, text_en: "Feeling bad about yourself — or that you are a failure or have let yourself or your family down", text_ru: null }
-  - { id: item7, text_en: "Trouble concentrating on things, such as reading the newspaper or watching television", text_ru: null }
-  - { id: item8, text_en: "Moving or speaking so slowly that other people could have noticed? Or the opposite — being so fidgety or restless that you have been moving around a lot more than usual", text_ru: null }
-  - { id: item9, text_en: "Thoughts that you would be better off dead or of hurting yourself in some way", text_ru: null }
+  - { id: item1, text_en: "Little interest or pleasure in doing things",
+      text_ru: "Снижение интереса и удовольствия от привычных дел" }
+  - { id: item2, text_en: "Feeling down, depressed, or hopeless", text_ru: "Чувство подавленности или безнадежности" }
+  - { id: item3, text_en: "Trouble falling or staying asleep, or sleeping too much",
+      text_ru: "Проблемы со сном (неспособность заснуть, раннее пробуждение или слишком долгий сон)" }
+  - { id: item4, text_en: "Feeling tired or having little energy", text_ru: "Чувство усталости или недостатка энергии" }
+  - { id: item5, text_en: "Poor appetite or overeating", text_ru: "Плохой аппетит или переедание" }
+  - { id: item6, text_en: "Feeling bad about yourself — or that you are a failure or have let yourself or your family down",
+      text_ru: "Плохое мнение о себе или чувство, что не смог оправдать ожиданий моей семьи" }
+  - { id: item7, text_en: "Trouble concentrating on things, such as reading the newspaper or watching television",
+      text_ru: "Проблемы с концентрацией внимания (например, при чтении газеты или просмотре телевизионной передачи)" }
+  - { id: item8, text_en: "Moving or speaking so slowly that other people could have noticed? Or the opposite — being so fidgety or restless that you have been moving around a lot more than usual",
+      text_ru: "Замедленность движений или речи, которая стала заметна другим людям, или, напротив, суетливость, когда движения и речь стали более быстрыми и беспокойными" }
+  - { id: item9, text_en: "Thoughts that you would be better off dead or of hurting yourself in some way",
+      text_ru: "Мысли о том, что мне бы хотелось умереть или причинить себе боль" }
 
 severity:
   - { min: 0,  max: 4,  level: minimal,           label_ru: "минимальная депрессия" }
