@@ -14,10 +14,13 @@ import { Sources } from '../../components/Sources';
 import { ALERT_LEVEL, REFERRAL_LEVEL, SPECIALTY, capitalize, evidenceRows, formatDate, formatDateTime, plural,
   triggerLabel } from '../../labels';
 
-function deliverySeconds(a: Alert): string | null {
-  if (!a.delivered_at) return null;
-  const s = (new Date(a.delivered_at).getTime() - new Date(a.created_at).getTime()) / 1000;
-  return s.toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+/** «доставлено за 15 мс» / «за 2,3 с»; если врач был не в сети — когда алерт пришёл при подключении. */
+function deliveryText(a: Alert): string {
+  if (!a.delivered_at) return ' · ещё не доставлено';
+  const ms = new Date(a.delivered_at).getTime() - new Date(a.created_at).getTime();
+  if (ms < 1000) return ` · доставлено за ${Math.max(1, Math.round(ms))} мс`;
+  if (ms < 60_000) return ` · доставлено за ${(ms / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} с`;
+  return ` · доставлено при подключении врача ${formatDateTime(a.delivered_at)}`;
 }
 
 /** Диагнозы — справочная строка под ФИО: нейтральный серый, чтобы не спорить с алертами и направлениями. */
@@ -58,7 +61,7 @@ function AlertCard({ alert: a, ack }: { alert: Alert; ack: ReturnType<typeof use
       <Stack gap={4}>
         <Text size="xs">
           {formatDateTime(a.created_at)} · {triggerLabel(a.trigger)}
-          {deliverySeconds(a) !== null ? ` · доставлено за ${deliverySeconds(a)} с` : ' · ещё не доставлено'}
+          {deliveryText(a)}
           {a.updated_at && ` · новые данные ${formatDateTime(a.updated_at)}`}
           {a.updates > 1 && ` (${a.updates} ${plural(a.updates, 'раз', 'раза', 'раз')})`}
         </Text>

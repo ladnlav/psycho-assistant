@@ -30,3 +30,17 @@ def test_card_shows_diagnoses_to_own_doctor_only(client, doctor_token, patient_t
 def test_card_without_diagnoses(client, doctor_token, patient_token):
     pid = client.get("/api/doctor/patients", headers=auth(doctor_token)).json()[0]["id"]
     assert client.get(f"/api/doctor/patients/{pid}", headers=auth(doctor_token)).json()["diagnoses"] == []
+
+
+def test_card_view_is_audited_once_per_window(client, doctor_token, patient_token):
+    """Карточка опрашивается раз в 10 с — журнал аудита не должен расти на каждый опрос."""
+    from sqlalchemy import func, select
+
+    from app.models import AuditLog
+    pid = client.get("/api/doctor/patients", headers=auth(doctor_token)).json()[0]["id"]
+    for _ in range(3):
+        assert client.get(f"/api/doctor/patients/{pid}", headers=auth(doctor_token)).status_code == 200
+    with SessionLocal() as db:
+        views = db.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == "patient_card.viewed", AuditLog.entity_id == pid))
+    assert views == 1

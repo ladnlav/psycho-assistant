@@ -1,5 +1,6 @@
 import secrets
 import uuid
+from datetime import timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
@@ -7,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.kb import KnowledgeBase, get_kb
-from app.models import (AdverseEvent, Alert, Diagnosis, DiaryEntry, DoctorPatientLink, Invite, MedicationIntake,
+from app.models import (AdverseEvent, Alert, AuditLog, Diagnosis, DiaryEntry, DoctorPatientLink, Invite, MedicationIntake,
                         Message, PatientProfile, Prescription, Recommendation, Referral, ScaleResponse, User, utcnow)
 from app.schemas import (AdverseEventOut, AlertOut, Decision, DiagnosisOut, DiaryOut, IntakeOut, InviteCreate,
                          InviteOut, MessageIn, MessageOut, PatientCard, PatientSummary, PrescriptionCheck,
@@ -23,6 +24,7 @@ from app.services.drug_checks import check_prescription
 router = APIRouter(prefix="/api/doctor", tags=["doctor"])
 
 LEVEL_RANK = {"critical": 3, "high": 2, "medium": 1}
+VIEW_AUDIT_WINDOW = timedelta(minutes=10)
 _CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # без похожих символов (O/0, I/1)
 
 
@@ -73,8 +75,13 @@ def patient_card(patient_id: uuid.UUID, doctor: User = Depends(require_doctor), 
     for row in db.scalars(select(ScaleResponse).where(ScaleResponse.patient_id == patient_id)
                           .order_by(ScaleResponse.created_at)):
         scales.setdefault(row.scale_id, []).append(ScaleResult.model_validate(row))
-    audit(db, doctor.id, "patient_card.viewed", "patient", patient_id)
-    db.commit()
+    # Карточка опрашивается раз в 10 с; в журнал — один просмотр на врача и пациента за VIEW_AUDIT_WINDOW.
+    seen = db.scalar(select(AuditLog.id).where(
+        AuditLog.actor_id == doctor.id, AuditLog.action == "patient_card.viewed",
+        AuditLog.entity_id == str(patient_id), AuditLog.created_at >= utcnow() - VIEW_AUDIT_WINDOW).limit(1))
+    if seen is None:
+        audit(db, doctor.id, "patient_card.viewed", "patient", patient_id)
+        db.commit()
     return PatientCard(
         id=patient_id,
         full_name=user.full_name,

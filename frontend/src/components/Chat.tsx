@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge, Button, Group, Paper, ScrollArea, Stack, Text, Textarea } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Message, type MessageSent, type SafetyScreen } from '../api';
@@ -12,6 +12,7 @@ export function Chat({ path, onSafety }: { path: string; onSafety?: (safety: Saf
   const { me } = useAuth();
   const qc = useQueryClient();
   const [text, setText] = useState('');
+  const viewport = useRef<HTMLDivElement>(null);
   const { data = [] } = useQuery({ queryKey: ['messages', path], queryFn: () => api<Message[]>(path),
     refetchInterval: 5000 });
   const send = useMutation({
@@ -22,10 +23,13 @@ export function Chat({ path, onSafety }: { path: string; onSafety?: (safety: Saf
       qc.invalidateQueries({ queryKey: ['messages', path] });
     },
   });
+  // Новое сообщение — прокрутить к нему, иначе ответ остаётся ниже видимой части.
+  const last = data.at(-1)?.id;
+  useEffect(() => { viewport.current?.scrollTo({ top: viewport.current.scrollHeight }); }, [last]);
 
   return (
     <Stack gap="xs">
-      <ScrollArea h={240} type="auto">
+      <ScrollArea h={240} type="auto" viewportRef={viewport}>
         <Stack gap={6}>
           {data.length === 0 && <Text c="dimmed" size="sm">Сообщений пока нет</Text>}
           {data.map((m) => {
