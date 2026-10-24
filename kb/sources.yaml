@@ -157,10 +157,10 @@ kr_depression:
 
 grls_aviandr:
   type: instruction
-  title: "Инструкция по медицинскому применению ЛП «Авиандр» (маритупирдин), РУ ЛП-№(002445)-(РГ-RU) от 31.05.2023, переоформлено 21.05.2025"
-  url: https://grls.pharm-portal.ru/grls/26afe55c-02b5-41c6-a53b-7a09eb619ef1
-  verified: false
-  note: "Номер РУ, даты и ссылка — из таблицы Саввы 21.10. TODO(Савва): PDF инструкции и сверка с официальным ГРЛС (grls.rosminzdrav.ru)"
+  title: "Листок-вкладыш ЛП «АВИАНДР®» (маритупирдин), 20 мг, РУ ЛП-№(002445)-(РГ-RU) от 31.05.2023, изменение от 16.07.2026"
+  url: https://grls.minzdrav.gov.ru/InstrImg/2026/07/29/1532717/94ba54dc-ce1c-40ed-96f4-5c3a31f13805.pdf
+  verified: true
+  note: "Документ из ГРЛС (grls.minzdrav.gov.ru), скачан 24.10; держатель РУ — ООО «Авинейро», состояние «Действующий». Врачебная ОХЛП в ГРЛС не опубликована. TODO(Савва): сверить перенос в kb/drugs/aviandr.yaml"
 
 sponsor_deck_aviandr:
   type: other
