@@ -11,8 +11,8 @@ from app.models import (AdverseEvent, Alert, Diagnosis, DiaryEntry, DoctorPatien
                         Message, PatientProfile, Prescription, Recommendation, Referral, ScaleResponse, User, utcnow)
 from app.schemas import (AdverseEventOut, AlertOut, Decision, DiagnosisOut, DiaryOut, IntakeOut, InviteCreate,
                          InviteOut, MessageIn, MessageOut, PatientCard, PatientSummary, PrescriptionCheck,
-                         PrescriptionIn, PrescriptionOut, RecommendationOut, ScaleResult, ScaleSubmit,
-                         ScaleSubmitResult)
+                         PrescriptionIn, PrescriptionOut, PrescriptionStop, RecommendationOut, ReferralIn,
+                         ReferralOut, ScaleResult, ScaleSubmit, ScaleSubmitResult)
 from app.security import ensure_own_patient, require_doctor
 from app.services.alerts import hub
 from app.services.audit import audit
@@ -99,6 +99,8 @@ def patient_card(patient_id: uuid.UUID, doctor: User = Depends(require_doctor), 
         recommendations=[RecommendationOut.model_validate(r) for r in db.scalars(
             select(Recommendation).where(Recommendation.patient_id == patient_id)
             .order_by(Recommendation.created_at.desc()))],
+        referrals=[ReferralOut.model_validate(r) for r in db.scalars(
+            select(Referral).where(Referral.patient_id == patient_id).order_by(Referral.created_at.desc()))],
     )
 
 
@@ -142,13 +144,18 @@ def prescribe(patient_id: uuid.UUID, body: PrescriptionIn, doctor: User = Depend
 
 
 @router.post("/prescriptions/{rx_id}/stop", response_model=PrescriptionOut)
-def stop_prescription(rx_id: uuid.UUID, doctor: User = Depends(require_doctor), db: Session = Depends(get_db)):
+def stop_prescription(rx_id: uuid.UUID, body: PrescriptionStop | None = None, doctor: User = Depends(require_doctor),
+                      db: Session = Depends(get_db)):
+    """Отменяет назначение тоже только врач; причина необязательна и пишется в аудит."""
     rx = db.get(Prescription, rx_id)
     if rx is None:
         raise HTTPException(404, "Назначение не найдено")
     ensure_own_patient(db, doctor, rx.patient_id)
+    if not rx.active:
+        raise HTTPException(409, "Назначение уже отменено")
     rx.active, rx.end_date = False, utcnow().date()
-    audit(db, doctor.id, "prescription.stopped", "prescription", rx.id)
+    reason = ((body.reason if body else None) or "").strip() or None
+    audit(db, doctor.id, "prescription.stopped", "prescription", rx.id, {"reason": reason})
     db.commit()
     return rx
 
@@ -198,6 +205,20 @@ def decide(rec_id: uuid.UUID, body: Decision, doctor: User = Depends(require_doc
     audit(db, doctor.id, f"recommendation.{body.decision}", "recommendation", rec.id, {"note": body.note})
     db.commit()
     return rec
+
+
+@router.post("/patients/{patient_id}/referrals", response_model=ReferralOut)
+def create_referral(patient_id: uuid.UUID, body: ReferralIn, doctor: User = Depends(require_doctor),
+                    db: Session = Depends(get_db)):
+    """Направление по решению врача, без предложения правила: уровень и причину врач указывает сам."""
+    ensure_own_patient(db, doctor, patient_id)
+    ref = Referral(patient_id=patient_id, to_specialty=body.to_specialty, level=body.level, reason=body.reason,
+                   confirmed_by=doctor.id)
+    db.add(ref)
+    db.flush()
+    audit(db, doctor.id, "referral.created", "referral", ref.id, body.model_dump())
+    db.commit()
+    return ref
 
 
 @router.get("/patients/{patient_id}/messages", response_model=list[MessageOut])

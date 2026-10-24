@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { Alert as MAlert, Anchor, Badge, Button, Card, Group, Modal, NumberInput, ScrollArea, SimpleGrid, Stack, Table,
-  Text, Textarea, TextInput, Title, Tooltip } from '@mantine/core';
+import { Alert as MAlert, Anchor, Badge, Button, Card, Divider, Group, Input, Modal, NumberInput, ScrollArea,
+  SegmentedControl, Select, SimpleGrid, Stack, Table, Text, Textarea, TextInput, Title, Tooltip } from '@mantine/core';
 import { LineChart } from '@mantine/charts';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
-import { api, type Alert, type Diagnosis, type PatientCard, type PrescriptionCheck, type Recommendation } from '../../api';
+import { api, type Alert, type Diagnosis, type PatientCard, type Prescription, type PrescriptionCheck,
+  type Recommendation, type Referral, type ReferralIn, type ReferralLevel, type ReferralSpecialty } from '../../api';
 import { AlertLevelBadge, ReferralBadge } from '../../components/Badges';
 import { Chat } from '../../components/Chat';
 import { DrugWarnings } from '../../components/DrugWarnings';
 import { Sources } from '../../components/Sources';
-import { ALERT_LEVEL, evidenceRows, formatDate, formatDateTime, plural, triggerLabel } from '../../labels';
+import { ALERT_LEVEL, REFERRAL_LEVEL, SPECIALTY, capitalize, evidenceRows, formatDate, formatDateTime, plural,
+  triggerLabel } from '../../labels';
 
 function deliverySeconds(a: Alert): string | null {
   if (!a.delivered_at) return null;
@@ -200,6 +202,112 @@ function PrescribeForm({ patientId }: { patientId: string }) {
   );
 }
 
+function rxLabel(p: Prescription): string {
+  return `${p.drug_name}${p.dose_mg ? `, ${p.dose_mg} мг` : ''}`;
+}
+
+/** Отмена назначения — тоже решение врача: с подтверждением, причина необязательна и пишется в аудит. */
+function StopPrescription({ rx, patientId }: { rx: Prescription; patientId: string }) {
+  const qc = useQueryClient();
+  const [opened, setOpened] = useState(false);
+  const [reason, setReason] = useState('');
+  const stop = useMutation({
+    mutationFn: () => api(`/doctor/prescriptions/${rx.id}/stop`, { body: { reason: reason.trim() || null } }),
+    onSuccess: () => {
+      setOpened(false);
+      setReason('');
+      qc.invalidateQueries({ queryKey: ['card', patientId] });
+    },
+  });
+  const close = () => {
+    setOpened(false);
+    stop.reset();
+  };
+  return (
+    <>
+      <Button size="xs" variant="light" color="red" onClick={() => setOpened(true)}>Отменить назначение</Button>
+      <Modal opened={opened} onClose={close} title={<Text fw={600}>Отменить назначение?</Text>} centered>
+        <Stack gap="sm">
+          <Text size="sm">
+            {rxLabel(rx)} — с {formatDate(rx.start_date)}. Препарат пропадёт из приложения пациента, отметки приёма
+            прекратятся.
+          </Text>
+          <Textarea label="Причина" description="Необязательно; сохранится в журнале действий врача" autosize
+            minRows={2} value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
+          {stop.isError && <MAlert color="red" variant="light">{(stop.error as Error).message}</MAlert>}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={close}>Не отменять</Button>
+            <Button color="red" loading={stop.isPending} onClick={() => stop.mutate()}>Отменить назначение</Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </>
+  );
+}
+
+const REFERRAL_SPECIALTIES: ReferralSpecialty[] = ['psychiatrist', 'psychotherapist', 'neurologist'];
+
+/** Все направления пациента: принятые предложения правил и направления по решению врача.
+ *  Уровень — тем же значком ОБЯЗАТЕЛЬНО / ЖЕЛАТЕЛЬНО, что и в предложениях. */
+function Referrals({ card }: { card: PatientCard }) {
+  const qc = useQueryClient();
+  const [to, setTo] = useState<string | null>(null);
+  const [level, setLevel] = useState<ReferralLevel>('desirable');
+  const [reason, setReason] = useState('');
+  const create = useMutation({
+    mutationFn: (body: ReferralIn) => api<Referral>(`/doctor/patients/${card.id}/referrals`, { body }),
+    onSuccess: () => {
+      setTo(null);
+      setReason('');
+      qc.invalidateQueries({ queryKey: ['card', card.id] });
+    },
+  });
+  const ready = to !== null && reason.trim() !== '';
+  return (
+    <Card withBorder radius="md">
+      <Title order={4} mb="sm">Направления</Title>
+      <Stack gap="sm">
+        {card.referrals.length === 0 && <Text c="dimmed" size="sm">Направлений нет</Text>}
+        {card.referrals.map((r) => {
+          const rec = card.recommendations.find((x) => x.id === r.recommendation_id);
+          return (
+            <Stack key={r.id} gap={2}>
+              <Group gap="xs">
+                <ReferralBadge level={r.level} />
+                <Text fw={600}>{capitalize(SPECIALTY[r.to_specialty] ?? r.to_specialty)}</Text>
+                <Text size="xs" c="dimmed">{formatDate(r.created_at)}</Text>
+              </Group>
+              {r.reason && <Text size="sm">{r.reason}</Text>}
+              <Text size="xs" c="dimmed">
+                {r.recommendation_id ? 'По предложению правила, принято врачом' : 'Решение врача, без предложения правила'}
+              </Text>
+              {rec && <Sources ids={rec.sources} />}
+            </Stack>
+          );
+        })}
+        <Divider label="Направить пациента" labelPosition="left" />
+        <Group align="flex-end" gap="xs">
+          <Select label="Специалист" placeholder="Выберите" w={170} allowDeselect={false} value={to} onChange={setTo}
+            data={REFERRAL_SPECIALTIES.map((s) => ({ value: s, label: capitalize(SPECIALTY[s]) }))} />
+          <Input.Wrapper label="Уровень">
+            <SegmentedControl value={level} onChange={(v) => setLevel(v as ReferralLevel)}
+              color={REFERRAL_LEVEL[level].color}
+              data={(['mandatory', 'desirable'] as const).map((l) => ({ value: l, label: REFERRAL_LEVEL[l].label }))} />
+          </Input.Wrapper>
+        </Group>
+        <Textarea label="Причина" required autosize minRows={2} value={reason}
+          onChange={(e) => setReason(e.currentTarget.value)} />
+        <Group>
+          <Button disabled={!ready} loading={create.isPending} onClick={() => ready && create.mutate(
+            { to_specialty: to as ReferralSpecialty, level, reason: reason.trim() })}>Направить</Button>
+          <Text size="xs" c="dimmed">Направление запишется от вашего имени</Text>
+        </Group>
+        {create.isError && <MAlert color="red" variant="light">{(create.error as Error).message}</MAlert>}
+      </Stack>
+    </Card>
+  );
+}
+
 export function PatientCardPage() {
   const { patientId = '' } = useParams();
   // Записи пациента без алерта (дневник, приём, лёгкий побочный эффект) по WebSocket не приходят — опрашиваем, как чат.
@@ -218,6 +326,7 @@ export function PatientCardPage() {
   const scaleSeries = [...byDate.values()];
   const diarySeries = card.diary.map((d) => ({ date: formatDate(d.day), Тревога: d.anxiety, Настроение: d.mood }));
   const active = card.prescriptions.filter((p) => p.active);
+  const past = card.prescriptions.filter((p) => !p.active);
 
   return (
     <Stack>
@@ -255,14 +364,24 @@ export function PatientCardPage() {
           <Title order={4} mb="sm">Терапия и приверженность</Title>
           <Stack gap="xs">
             {active.map((p) => (
-              <Text key={p.id}>{p.drug_name}{p.dose_mg ? `, ${p.dose_mg} мг` : ''} — с {formatDate(p.start_date)}</Text>
+              <Group key={p.id} justify="space-between" gap="xs">
+                <Text>{rxLabel(p)} — с {formatDate(p.start_date)}</Text>
+                <StopPrescription rx={p} patientId={card.id} />
+              </Group>
             ))}
             <Text size="sm">
               Приверженность за 7 дней: {card.pdc_7d === null ? 'недостаточно данных' : `${Math.round(card.pdc_7d * 100)}%`}
             </Text>
             {active.length === 0 && <PrescribeForm patientId={card.id} />}
+            {past.length > 0 && (
+              <Text size="xs" c="dimmed">
+                Ранее: {past.map((p) => `${rxLabel(p)} (${formatDate(p.start_date)}–${p.end_date ? formatDate(p.end_date) : '?'})`)
+                  .join('; ')}
+              </Text>
+            )}
           </Stack>
         </Card>
+        <Referrals card={card} />
         <Card withBorder radius="md">
           <Title order={4} mb="sm">Нежелательные явления</Title>
           {card.adverse_events.length === 0 && <Text c="dimmed" size="sm">Не зарегистрированы</Text>}

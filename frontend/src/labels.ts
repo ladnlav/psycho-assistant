@@ -45,6 +45,7 @@ export const SPECIALTY: Record<string, string> = {
   therapist: 'терапевт',
   neurologist: 'невролог',
   psychiatrist: 'психиатр',
+  psychotherapist: 'психотерапевт',
 };
 
 /** 1 балл, 2 балла, 5 баллов */

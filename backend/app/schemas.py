@@ -1,8 +1,8 @@
 import uuid
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
 
 
 class ORM(BaseModel):
@@ -158,7 +158,12 @@ class PrescriptionOut(ORM):
     dose_mg: float | None
     frequency: str | None
     start_date: date
+    end_date: date | None = None  # когда назначение закончилось или врач его отменил
     active: bool
+
+
+class PrescriptionStop(BaseModel):
+    reason: str | None = Field(None, max_length=2000, description="почему врач отменяет назначение; пишется в аудит")
 
 
 class IntakeIn(BaseModel):
@@ -201,6 +206,22 @@ class RecommendationOut(ORM):
     created_at: datetime
     decided_at: datetime | None
     decision_note: str | None
+
+
+class ReferralIn(BaseModel):
+    """Направление по решению врача, без предложения правила."""
+    to_specialty: Literal["psychiatrist", "psychotherapist", "neurologist"]
+    level: Literal["mandatory", "desirable"]
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+
+
+class ReferralOut(ORM):
+    id: uuid.UUID
+    to_specialty: str
+    level: str  # mandatory | desirable
+    reason: str
+    recommendation_id: uuid.UUID | None  # None — врач направил сам, без предложения правила
+    created_at: datetime
 
 
 class Decision(BaseModel):
@@ -256,3 +277,4 @@ class PatientCard(BaseModel):
     adverse_events: list[AdverseEventOut]
     alerts: list[AlertOut]
     recommendations: list[RecommendationOut]
+    referrals: list[ReferralOut]  # принятые предложения правил и направления по решению врача

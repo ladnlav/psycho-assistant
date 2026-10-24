@@ -44,7 +44,7 @@ export interface AdverseEvent { id: string; description: string; severity: strin
 export interface AdverseEventSent extends AdverseEvent { safety: SafetyScreen | null }
 export interface Prescription {
   id: string; drug_id: string | null; drug_name: string; dose_mg: number | null; frequency: string | null;
-  start_date: string; active: boolean;
+  start_date: string; end_date: string | null; active: boolean; // end_date — окончание или отмена врачом
 }
 export interface Intake { id: string; prescription_id: string; day: string; status: 'taken' | 'missed' }
 export interface DrugWarning {
@@ -74,6 +74,13 @@ export interface Recommendation {
   decided_at: string | null;
   decision_note: string | null;
 }
+export type ReferralSpecialty = 'psychiatrist' | 'psychotherapist' | 'neurologist';
+/** Направление по решению врача, без предложения правила (POST /doctor/patients/{id}/referrals). */
+export interface ReferralIn { to_specialty: ReferralSpecialty; level: ReferralLevel; reason: string }
+export interface Referral {
+  id: string; to_specialty: string; level: ReferralLevel; reason: string; created_at: string;
+  recommendation_id: string | null; // null — врач направил сам, без предложения правила
+}
 export interface PatientSummary {
   id: string; full_name: string; open_alerts: number; top_alert_level: AlertLevel | null;
   last_scores: Record<string, ScaleResult>;
@@ -92,6 +99,7 @@ export interface PatientCard {
   adverse_events: AdverseEvent[];
   alerts: Alert[];
   recommendations: Recommendation[];
+  referrals: Referral[]; // принятые предложения правил и направления по решению врача
 }
 export interface Invite { code: string; patient_label: string | null; created_at: string; used_at: string | null }
 export interface Message {
