@@ -62,6 +62,11 @@ class SafetyScreen(BaseModel):
     contacts: list[dict[str, str]]
 
 
+class Reminder(BaseModel):
+    rule_id: str
+    text_ru: str
+
+
 class ScaleResult(ORM):
     id: uuid.UUID
     scale_id: str
@@ -180,6 +185,9 @@ class AlertOut(ORM):
     delivered_at: datetime | None
     acknowledged_at: datetime | None
     updated_at: datetime | None = None  # новые данные в открытом алерте
+    updates: int = 0  # сколько раз в открытый алерт приходили новые данные
+    trigger: str | None = None  # что запустило проверку правил: scale:gad7, diary, schedule…
+    evidence: dict[str, Any] = {}  # на каких данных сработало правило (Alert.evidence)
 
 
 class RecommendationOut(ORM):

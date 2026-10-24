@@ -16,6 +16,11 @@ log = logging.getLogger(__name__)
 # (simpleeval не пускает к именам с «_»), зато по нему отпечаток отличает новый результат от старого.
 RECORD = "_record"
 
+# Числа, которые растут сами со временем, без новых данных. В отпечаток идёт не число, а дата, от которой
+# оно считается: иначе «5 дней без записей» на шестой день выглядело бы новым событием и алерт повторялся бы.
+LAST_REPORT = "_last_report"
+TIME_ANCHORS = {"days_since_report": LAST_REPORT}
+
 
 def evaluate(rules: Iterable[Rule], context: dict[str, Any]) -> list[Rule]:
     """Возвращает сработавшие правила. Если данных для правила нет — оно не срабатывает."""
@@ -56,7 +61,10 @@ def evidence(rule: Rule, context: dict[str, Any]) -> dict[str, Any]:
     ev: dict[str, Any] = {}
     for root, attr in referenced_names(rule.when):
         ns = context.get(root)
-        if attr is None:
+        if attr is None and root in TIME_ANCHORS:
+            anchor = TIME_ANCHORS[root]
+            ev[anchor.lstrip("_")] = context.get(anchor)
+        elif attr is None:
             ev[root] = _plain(ns)
         elif isinstance(ns, dict):
             ev[f"{root}.{attr}"] = _plain(ns.get(attr))

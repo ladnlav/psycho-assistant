@@ -1,12 +1,17 @@
 """Алертинг: правила → алерты и предложения врачу → доставка врачу по WebSocket.
 
+Правила проверяются при каждой записи пациента и по расписанию (rules_schedule): «нет записей N дней»
+наступает как раз тогда, когда пациент ничего не пишет.
+
 Время доставки — техметрика кейса: у каждого алерта есть created_at → delivered_at → acknowledged_at.
 TODO (если успеем): внешний канал (Telegram/почта); эскалация при отсутствии подтверждения — после хакатона.
 """
 
+import asyncio
 import logging
 import uuid
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import timezone
 
@@ -15,11 +20,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
-from app.kb import KnowledgeBase
+from app.kb import KnowledgeBase, Rule
 from app.models import Alert, DoctorPatientLink, Recommendation, utcnow
 from app.services.audit import audit
 from app.services.context import build_context
-from app.services.rules import evaluate, evidence
+from app.services.rules import TIME_ANCHORS, evaluate, evidence, referenced_names
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +62,8 @@ def has_pending_proposal(db: Session, patient_id: uuid.UUID, rule_id: str, kind:
     return any(r.payload.get("to") == to for r in pending)
 
 
-def apply_rules(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, trigger: str) -> RulesOutcome:
+def apply_rules(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, trigger: str,
+                rules: Iterable[Rule] | None = None) -> RulesOutcome:
     """Вычисляет правила по свежим данным пациента и реагирует только на новые данные.
 
     Правило смотрит на состояние, поэтому срабатывает при каждой записи пациента. У алерта хранится отпечаток
@@ -68,7 +74,7 @@ def apply_rules(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, trigger: 
     outcome = RulesOutcome()
     doctor_id = lead_doctor_id(db, patient_id)
     context = build_context(db, kb, patient_id)
-    for rule in evaluate(kb.rules.values(), context):
+    for rule in evaluate(kb.rules.values() if rules is None else rules, context):
         ev = evidence(rule, context)
         last = db.scalar(
             select(Alert).where(Alert.patient_id == patient_id, Alert.rule_id == rule.id)
@@ -115,6 +121,48 @@ def apply_rules(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, trigger: 
             )
         audit(db, None, "alert.created", "alert", alert.id, {"rule": rule.id, "level": rule.level})
     return outcome
+
+
+def patient_reminders(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID) -> list[tuple[str, str]]:
+    """Напоминания пациенту от сработавших правил с remind_patient: (id правила, текст). Пока правило
+    срабатывает, напоминание видно в приложении; новая запись пациента снимает его сама."""
+    rules = [r for r in kb.rules.values() if "remind_patient" in r.actions]
+    return [(r.id, r.remind_ru) for r in evaluate(rules, build_context(db, kb, patient_id))]
+
+
+def timed_rules(kb: KnowledgeBase) -> list[Rule]:
+    """Правила, которые срабатывают без новой записи пациента, — от времени («нет записей N дней»)."""
+    return [r for r in kb.rules.values() if any(name in TIME_ANCHORS for name, _ in referenced_names(r.when))]
+
+
+def check_all_patients(db: Session, kb: KnowledgeBase) -> list[uuid.UUID]:
+    """Правила от времени по всем пациентам с лечащим врачом. Остальные правила по расписанию не проверяются:
+    у молчащего пациента нет отметок приёма, и «низкая приверженность» обгоняла бы порог «нет записей».
+    Отпечаток данных не даёт повторить уже известный алерт. Возвращает, что отправить врачам."""
+    rules = timed_rules(kb)
+    push: list[uuid.UUID] = []
+    for patient_id in db.scalars(
+        select(DoctorPatientLink.patient_id).where(DoctorPatientLink.active.is_(True)).distinct()
+    ).all():
+        push += apply_rules(db, kb, patient_id, trigger="schedule", rules=rules).push_ids
+    db.commit()
+    return push
+
+
+async def rules_schedule(kb: KnowledgeBase, minutes: int) -> None:
+    """Проверка правил по расписанию: сразу при старте, затем раз в `minutes` минут (RULES_CHECK_MINUTES)."""
+    def check() -> list[uuid.UUID]:
+        with SessionLocal() as db:
+            return check_all_patients(db, kb)
+
+    while True:
+        try:
+            ids = await asyncio.to_thread(check)
+            log.info("rules schedule: %d alerts to push", len(ids))
+            await hub.push(ids)
+        except Exception:
+            log.exception("rules schedule failed")
+        await asyncio.sleep(minutes * 60)
 
 
 def alert_to_dict(alert: Alert) -> dict:

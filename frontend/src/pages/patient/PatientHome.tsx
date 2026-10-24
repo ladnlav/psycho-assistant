@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Badge, Button, Card, Checkbox, Group, SegmentedControl, SimpleGrid, Slider, Stack, Text, Textarea,
-  Title } from '@mantine/core';
+import { Alert as MAlert, Badge, Button, Card, Checkbox, Group, SegmentedControl, SimpleGrid, Slider, Stack, Text,
+  Textarea, Title } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router';
 import { api, type AdverseEvent, type AdverseEventSent, type DiaryEntry, type Intake, type Prescription,
-  type SafetyScreen, type Scale, type ScaleSchedule } from '../../api';
+  type Reminder, type SafetyScreen, type Scale, type ScaleSchedule } from '../../api';
 import { useAuth } from '../../auth';
 import { Chat } from '../../components/Chat';
 import { Done } from '../../components/Done';
@@ -26,6 +26,7 @@ function DiaryCard() {
     mutationFn: () => api('/patient/diary', { body: { ...v, note: note || null } }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['my-diary'] });
+      qc.invalidateQueries({ queryKey: ['my-reminders'] });
       setEditing(false);
       setJustSaved(true);
     },
@@ -207,6 +208,19 @@ function AdverseEventCard({ onSafety }: { onSafety: (safety: SafetyScreen) => vo
   );
 }
 
+/** Напоминания из правил базы знаний (например, «нет записей 3 дня»). Синие — не путать с красным экраном помощи.
+ *  Любая запись пациента снимает напоминание: дневник обновляет его сразу, остальное — при следующем опросе. */
+function Reminders() {
+  const { data = [] } = useQuery({ queryKey: ['my-reminders'], queryFn: () => api<Reminder[]>('/patient/reminders'),
+    refetchInterval: 15_000 });
+  if (!data.length) return null;
+  return (
+    <Stack gap="xs">
+      {data.map((r) => <MAlert key={r.rule_id} color="blue" variant="light" title="Напоминание">{r.text_ru}</MAlert>)}
+    </Stack>
+  );
+}
+
 export function PatientHome() {
   const { me } = useAuth();
   const [safety, setSafety] = useState<SafetyScreen | null>(null);
@@ -221,6 +235,7 @@ export function PatientHome() {
           Нужна срочная помощь
         </Button>
       </Group>
+      <Reminders />
       <SimpleGrid cols={{ base: 1, md: 2 }}>
         <DiaryCard />
         <Stack>

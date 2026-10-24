@@ -33,6 +33,7 @@ export interface Scale {
 export interface ScaleResult { id: string; scale_id: string; total: number; severity: string; created_at: string }
 export interface ScaleSchedule { scale_id: string; last_taken_at: string | null; next_due: string | null; due: boolean }
 export interface SafetyScreen { message_ru: string; contacts: { title_ru: string; phone: string }[] }
+export interface Reminder { rule_id: string; text_ru: string } // из правил с remind_patient (kb/rules)
 export interface ScaleSubmitResult { result: ScaleResult; severity_label_ru: string; safety: SafetyScreen | null }
 
 export interface DiaryEntry {
@@ -57,6 +58,9 @@ export interface Alert {
   id: string; patient_id: string; rule_id: string; level: AlertLevel; title: string; sources: string[];
   created_at: string; delivered_at: string | null; acknowledged_at: string | null;
   updated_at: string | null; // новые данные в открытом алерте
+  updates: number; // сколько раз в открытый алерт приходили новые данные
+  trigger: string | null; // что запустило проверку правил: scale:gad7, diary, schedule…
+  evidence: Record<string, string | number | boolean | null>; // на каких данных сработало правило
 }
 export interface Recommendation {
   id: string;

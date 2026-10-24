@@ -61,6 +61,48 @@ export function capitalize(text: string): string {
   return text ? text[0].toLocaleUpperCase('ru-RU') + text.slice(1) : text;
 }
 
+const SCALE_NAME: Record<string, string> = { gad7: 'GAD-7', phq9: 'PHQ-9' };
+
+/** Что запустило проверку правил (Alert.trigger). */
+export function triggerLabel(trigger: string | null): string {
+  if (!trigger) return 'нет данных';
+  if (trigger.startsWith('scale:')) return `заполнена шкала ${SCALE_NAME[trigger.slice(6)] ?? trigger.slice(6)}`;
+  if (trigger.startsWith('scenario:')) return 'загружен демо-сценарий';
+  return ({
+    diary: 'запись в дневнике',
+    intake: 'отметка приёма',
+    adverse_event: 'сообщение о нежелательном явлении',
+    message: 'сообщение врачу',
+    schedule: 'проверка по расписанию',
+  } as Record<string, string>)[trigger] ?? trigger;
+}
+
+const SCALE_FIELD: Record<string, string> = {
+  total: 'сумма баллов',
+  n: 'число измерений',
+  delta_prev: 'изменение к прошлому измерению',
+  delta_baseline: 'изменение к первому измерению',
+  mcid: 'порог значимого изменения',
+};
+
+/** Данные, на которых сработало правило (Alert.evidence): «PHQ-9 · пункт 9» = 1. */
+export function evidenceRows(evidence: Record<string, string | number | boolean | null>): { label: string; value: string }[] {
+  return Object.entries(evidence).map(([key, v]) => {
+    const value = v === null ? 'нет данных' : v === true ? 'да' : v === false ? 'нет' : String(v);
+    if (key === 'last_report') return { label: 'Последняя запись пациента', value: v ? formatDate(String(v)) : value };
+    if (key === 'pdc_7d') return { label: 'Дней с приёмом за неделю', value: typeof v === 'number' ? `${Math.round(v * 100)} %` : value };
+    if (key === 'ae.serious_7d') return { label: 'Серьёзных нежелательных явлений за 7 дней', value };
+    if (key === 'ae.any_7d') return { label: 'Нежелательных явлений за 7 дней', value };
+    if (key === 'text.critical') return { label: 'Текст пациента с признаками риска', value };
+    const [root, field] = key.split('.');
+    if (SCALE_NAME[root] && field) {
+      const item = field.match(/^item(\d+)$/);
+      return { label: `${SCALE_NAME[root]} · ${item ? `пункт ${item[1]}` : SCALE_FIELD[field] ?? field}`, value };
+    }
+    return { label: key, value };
+  });
+}
+
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
 }

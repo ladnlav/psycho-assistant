@@ -1,0 +1,10 @@
+id: no_reports_3d
+title_ru: "Нет записей пациента 3 дня"
+level: medium
+status: draft
+# days_since_report — дней с последней записи пациента (дневник, шкала, приём, НЯ, сообщение) или с регистрации.
+# Только напоминание пациенту, врачу не приходит. Проверяется и по расписанию (RULES_CHECK_MINUTES), не только при записи.
+when: "days_since_report >= 3"
+actions: [remind_patient]
+remind_ru: "Вы не отмечали самочувствие несколько дней. Заполните дневник — это займёт минуту, а врач увидит, как вы."
+sources: [team_clinician_followup]

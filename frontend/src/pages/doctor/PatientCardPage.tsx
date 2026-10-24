@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Alert as MAlert, Anchor, Badge, Button, Card, Group, NumberInput, SimpleGrid, Stack, Text, Textarea,
-  TextInput, Title, Tooltip } from '@mantine/core';
+import { Alert as MAlert, Anchor, Badge, Button, Card, Group, Modal, NumberInput, ScrollArea, SimpleGrid, Stack, Table,
+  Text, Textarea, TextInput, Title, Tooltip } from '@mantine/core';
 import { LineChart } from '@mantine/charts';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,7 +10,7 @@ import { AlertLevelBadge, ReferralBadge } from '../../components/Badges';
 import { Chat } from '../../components/Chat';
 import { DrugWarnings } from '../../components/DrugWarnings';
 import { Sources } from '../../components/Sources';
-import { ALERT_LEVEL, formatDate, formatDateTime } from '../../labels';
+import { ALERT_LEVEL, evidenceRows, formatDate, formatDateTime, plural, triggerLabel } from '../../labels';
 
 function deliverySeconds(a: Alert): string | null {
   if (!a.delivered_at) return null;
@@ -34,36 +34,87 @@ function Diagnoses({ items }: { items: Diagnosis[] }) {
   );
 }
 
-function AlertsBlock({ card }: { card: PatientCard }) {
+function useAck(patientId: string) {
   const qc = useQueryClient();
-  const ack = useMutation({
+  return useMutation({
     mutationFn: (id: string) => api(`/doctor/alerts/${id}/ack`, { method: 'POST' }),
     onSuccess: (_, id) => {
       notifications.hide(id); // критичные уведомления не закрываются сами — убираем после подтверждения
-      qc.invalidateQueries({ queryKey: ['card', card.id] });
+      qc.invalidateQueries({ queryKey: ['card', patientId] });
       qc.invalidateQueries({ queryKey: ['patients'] });
     },
   });
+}
+
+/** Алерт целиком: когда создан и доставлен, что запустило проверку, на каких данных сработало правило, источники.
+ *  Один вид для открытого алерта и для записи из истории. */
+function AlertCard({ alert: a, ack }: { alert: Alert; ack: ReturnType<typeof useAck> }) {
+  const evidence = evidenceRows(a.evidence);
+  return (
+    <MAlert color={ALERT_LEVEL[a.level].color} variant={a.level === 'critical' ? 'filled' : 'light'}
+      title={<Group gap="xs"><AlertLevelBadge level={a.level} /><span>{a.title}</span></Group>}>
+      <Stack gap={4}>
+        <Text size="xs">
+          {formatDateTime(a.created_at)} · {triggerLabel(a.trigger)}
+          {deliverySeconds(a) !== null ? ` · доставлено за ${deliverySeconds(a)} с` : ' · ещё не доставлено'}
+          {a.updated_at && ` · новые данные ${formatDateTime(a.updated_at)}`}
+          {a.updates > 1 && ` (${a.updates} ${plural(a.updates, 'раз', 'раза', 'раз')})`}
+        </Text>
+        {evidence.length > 0 && (
+          <Text size="xs">Данные: {evidence.map((e) => `${e.label} — ${e.value}`).join('; ')}</Text>
+        )}
+        <Sources ids={a.sources} inverted={a.level === 'critical'} />
+        {a.acknowledged_at ? (
+          <Text size="xs" fw={600}>Принято к сведению {formatDateTime(a.acknowledged_at)}</Text>
+        ) : (
+          <Group><Button size="xs" variant="white" color="dark" loading={ack.isPending}
+            onClick={() => ack.mutate(a.id)}>Принято к сведению</Button></Group>
+        )}
+      </Stack>
+    </MAlert>
+  );
+}
+
+function AlertsBlock({ card }: { card: PatientCard }) {
+  const ack = useAck(card.id);
   const open = card.alerts.filter((a) => !a.acknowledged_at);
   if (!open.length) return null;
+  return <Stack gap="xs">{open.map((a) => <AlertCard key={a.id} alert={a} ack={ack} />)}</Stack>;
+}
+
+/** Все алерты пациента, включая принятые к сведению; строка открывает алерт целиком. */
+function AlertHistory({ card }: { card: PatientCard }) {
+  const ack = useAck(card.id);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const selected = card.alerts.find((a) => a.id === openId);
   return (
-    <Stack gap="xs">
-      {open.map((a) => (
-        <MAlert key={a.id} color={ALERT_LEVEL[a.level].color} variant={a.level === 'critical' ? 'filled' : 'light'}
-          title={<Group gap="xs"><AlertLevelBadge level={a.level} /><span>{a.title}</span></Group>}>
-          <Stack gap={4}>
-            <Text size="xs">
-              {formatDateTime(a.created_at)}
-              {deliverySeconds(a) !== null ? ` · доставлено за ${deliverySeconds(a)} с` : ' · ещё не доставлено'}
-              {a.updated_at && ` · новые данные ${formatDateTime(a.updated_at)}`}
-            </Text>
-            <Sources ids={a.sources} inverted={a.level === 'critical'} />
-            <Group><Button size="xs" variant="white" color="dark" loading={ack.isPending}
-              onClick={() => ack.mutate(a.id)}>Принято к сведению</Button></Group>
-          </Stack>
-        </MAlert>
-      ))}
-    </Stack>
+    <Card withBorder radius="md">
+      <Title order={4} mb="sm">История алертов</Title>
+      {card.alerts.length === 0 ? <Text c="dimmed" size="sm">Алертов не было</Text> : (
+        <ScrollArea.Autosize mah={240}>
+          <Table highlightOnHover verticalSpacing={4}>
+            <Table.Tbody>
+              {card.alerts.map((a) => (
+                <Table.Tr key={a.id} style={{ cursor: 'pointer' }} tabIndex={0} onClick={() => setOpenId(a.id)}
+                  onKeyDown={(e) => e.key === 'Enter' && setOpenId(a.id)}>
+                  <Table.Td w={92}><Text size="xs" c="dimmed">{formatDateTime(a.created_at)}</Text></Table.Td>
+                  <Table.Td w={1}><AlertLevelBadge level={a.level} /></Table.Td>
+                  <Table.Td><Text size="sm" lineClamp={1}>{a.title}</Text></Table.Td>
+                  <Table.Td w={1} style={{ whiteSpace: 'nowrap' }}>
+                    <Text size="xs" c={a.acknowledged_at ? 'dimmed' : undefined} fw={a.acknowledged_at ? 400 : 600}>
+                      {a.acknowledged_at ? 'принят' : 'открыт'}
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea.Autosize>
+      )}
+      <Modal opened={!!selected} onClose={() => setOpenId(null)} title={<Text fw={600}>Алерт</Text>} size="lg" centered>
+        {selected && <AlertCard alert={selected} ack={ack} />}
+      </Modal>
+    </Card>
   );
 }
 
@@ -224,6 +275,7 @@ export function PatientCardPage() {
             ))}
           </Stack>
         </Card>
+        <AlertHistory card={card} />
         <Card withBorder radius="md">
           <Title order={4} mb="sm">Чат с пациентом</Title>
           <Chat path={`/doctor/patients/${card.id}/messages`} />

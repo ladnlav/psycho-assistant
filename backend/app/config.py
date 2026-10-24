@@ -19,6 +19,8 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080"]
 
+    rules_check_minutes: int = 60  # проверка правил по расписанию («нет записей N дней»); 0 — выключена
+
 
 @lru_cache
 def get_settings() -> Settings:

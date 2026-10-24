@@ -8,9 +8,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.kb import KnowledgeBase
-from app.models import (AdverseEvent, DiaryEntry, MedicationIntake, Message, Prescription, ScaleResponse,
+from app.models import (AdverseEvent, DiaryEntry, MedicationIntake, Message, Prescription, ScaleResponse, User,
                         utcnow)
-from app.services.rules import RECORD
+from app.services.rules import LAST_REPORT, RECORD
 
 
 def _scale_context(db: Session, patient_id: uuid.UUID, scale_id: str, mcid: float | None) -> dict | None:
@@ -79,6 +79,25 @@ def pdc_7d(db: Session, patient_id: uuid.UUID, today: date) -> float | None:
     return taken / days
 
 
+def last_report(db: Session, patient_id: uuid.UUID) -> date | None:
+    """День последней записи пациента: дневник, шкала, отметка приёма, нежелательное явление или сообщение врачу.
+    Записей ещё нет — день регистрации: «не начал пользоваться» — тоже повод напомнить."""
+    times = [
+        db.scalar(select(func.max(DiaryEntry.created_at)).where(DiaryEntry.patient_id == patient_id)),
+        db.scalar(select(func.max(ScaleResponse.created_at)).where(
+            ScaleResponse.patient_id == patient_id, ScaleResponse.submitted_by == patient_id)),
+        db.scalar(select(func.max(MedicationIntake.created_at)).where(MedicationIntake.patient_id == patient_id)),
+        db.scalar(select(func.max(AdverseEvent.created_at)).where(
+            AdverseEvent.patient_id == patient_id, AdverseEvent.reported_by == patient_id)),
+        db.scalar(select(func.max(Message.created_at)).where(
+            Message.patient_id == patient_id, Message.sender_id == patient_id)),
+    ]
+    last = max((t for t in times if t is not None), default=None)
+    if last is None:
+        last = db.scalar(select(User.created_at).where(User.id == patient_id))
+    return last.date() if last else None
+
+
 def build_context(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID) -> dict[str, Any]:
     now = utcnow()
     week_ago = now - timedelta(days=7)
@@ -99,6 +118,7 @@ def build_context(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID) -> dict
     }
     ctx["text"] = _text_context(db, patient_id, week_ago)
     ctx["pdc_7d"] = pdc_7d(db, patient_id, now.date())
-    last_report = db.scalar(select(func.max(DiaryEntry.day)).where(DiaryEntry.patient_id == patient_id))
-    ctx["days_since_report"] = (now.date() - last_report).days if last_report else None
+    last = last_report(db, patient_id)
+    ctx["days_since_report"] = (now.date() - last).days if last else None
+    ctx[LAST_REPORT] = last.isoformat() if last else None
     return ctx

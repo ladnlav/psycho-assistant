@@ -248,6 +248,20 @@ class Alert(Base):
         value = (self.details or {}).get("updated_at")
         return datetime.fromisoformat(value) if value else None
 
+    @property
+    def trigger(self) -> str | None:
+        """Что запустило проверку: scale:gad7, diary, message, schedule…"""
+        return (self.details or {}).get("trigger")
+
+    @property
+    def evidence(self) -> dict[str, Any]:
+        """Данные, на которых сработало правило, без служебных id записей (rules.RECORD)."""
+        return {k: v for k, v in ((self.details or {}).get("evidence") or {}).items() if not k.endswith("._record")}
+
+    @property
+    def updates(self) -> int:
+        return (self.details or {}).get("updates", 0)
+
 
 class Message(Base):
     __tablename__ = "messages"

@@ -9,10 +9,10 @@ from app.kb import KnowledgeBase, Scale, get_kb
 from app.models import (AdverseEvent, DiaryEntry, MedicationIntake, Message, Prescription, ScaleResponse, User,
                         utcnow)
 from app.schemas import (AdverseEventIn, AdverseEventOut, AdverseEventSent, DiaryIn, DiaryOut, IntakeIn, IntakeOut,
-                         MessageIn, MessageOut, MessageSent, PrescriptionOut, SafetyScreen, ScaleSchedule, ScaleSubmit,
-                         ScaleSubmitResult)
+                         MessageIn, MessageOut, MessageSent, PrescriptionOut, Reminder, SafetyScreen, ScaleSchedule,
+                         ScaleSubmit, ScaleSubmitResult)
 from app.security import require_patient
-from app.services.alerts import apply_rules, hub
+from app.services.alerts import apply_rules, hub, patient_reminders
 from app.services.audit import audit
 from app.services.clinical import record_scale, safety_screen
 from app.services.triage import classify
@@ -131,6 +131,13 @@ def report_adverse_event(body: AdverseEventIn, tasks: BackgroundTasks, user: Use
 @router.get("/safety", response_model=SafetyScreen)
 def get_safety(user: User = Depends(require_patient), kb: KnowledgeBase = Depends(get_kb)):
     return safety_screen(kb)
+
+
+@router.get("/reminders", response_model=list[Reminder])
+def my_reminders(user: User = Depends(require_patient), db: Session = Depends(get_db),
+                 kb: KnowledgeBase = Depends(get_kb)):
+    """Напоминания из правил с remind_patient (kb/rules): например, «нет записей 3 дня»."""
+    return [Reminder(rule_id=rid, text_ru=text) for rid, text in patient_reminders(db, kb, user.id)]
 
 
 @router.get("/messages", response_model=list[MessageOut])

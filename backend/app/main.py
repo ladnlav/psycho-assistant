@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -8,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import auth, doctor, kb, patient, ws
 from app.config import get_settings
 from app.kb import get_kb
+from app.services.alerts import rules_schedule
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("compass")
@@ -17,7 +19,11 @@ log = logging.getLogger("compass")
 async def lifespan(_: FastAPI):
     kb_ = get_kb()  # падаем при старте, если база знаний невалидна
     log.info("kb loaded: %d scales, %d rules, %d drugs", len(kb_.scales), len(kb_.rules), len(kb_.drugs))
+    minutes = get_settings().rules_check_minutes
+    schedule = asyncio.create_task(rules_schedule(kb_, minutes)) if minutes > 0 else None
     yield
+    if schedule:
+        schedule.cancel()
 
 
 app = FastAPI(title="Клинический компас", version="0.1.0", lifespan=lifespan)

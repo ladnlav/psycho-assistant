@@ -1,6 +1,7 @@
 import os
 
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
+os.environ["RULES_CHECK_MINUTES"] = "0"  # расписание проверяем вызовом check_all_patients, без фоновой задачи
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

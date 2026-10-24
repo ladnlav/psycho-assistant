@@ -103,6 +103,7 @@ class Rule(BaseModel):
     status: Status
     when: str
     actions: list[Literal["notify_doctor", "patient_safety_screen", "remind_patient"]]
+    remind_ru: str | None = None  # текст напоминания пациенту; обязателен при remind_patient
     propose: list[Proposal] = []
     sources: list[str] = []
 
@@ -112,6 +113,8 @@ class Rule(BaseModel):
             ast.parse(self.when, mode="eval")
         except SyntaxError as e:
             raise ValueError(f"{self.id}: синтаксическая ошибка в when: {e}") from e
+        if "remind_patient" in self.actions and not self.remind_ru:
+            raise ValueError(f"{self.id}: для remind_patient нужен текст remind_ru")
         return self
 
 

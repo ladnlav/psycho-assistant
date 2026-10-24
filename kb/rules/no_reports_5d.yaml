@@ -1,0 +1,9 @@
+id: no_reports_5d
+title_ru: "Нет записей пациента 5 дней: свяжитесь с пациентом"
+level: high
+status: draft
+# Тот же счётчик, что в no_reports_3d. Повторный алерт — только после новой записи и нового перерыва:
+# в отпечаток идёт дата последней записи, а не число дней (services/rules.TIME_ANCHORS).
+when: "days_since_report >= 5"
+actions: [notify_doctor]
+sources: [team_clinician_followup]

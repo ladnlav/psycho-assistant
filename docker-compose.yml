@@ -25,6 +25,7 @@ services:
       ML_URL: http://ml:8001
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
       SEED_PASSWORD: ${SEED_PASSWORD:-}
+      RULES_CHECK_MINUTES: ${RULES_CHECK_MINUTES:-60}
     volumes:
       - ./kb:/kb:ro
       - ./scenarios:/scenarios:ro
