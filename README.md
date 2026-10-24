@@ -160,12 +160,12 @@ GAD-7 и PHQ-9 — свободные: правообладатель (Pfizer) �
 | RTO ◆ | 2 с | Восстановление копии в отдельную базу — раздел «Резервные копии» |
 | RPO ◆ | 2 ч | Резервная копия базы раз в 2 часа |
 | F1 по диагнозам ◆ | 0,91 | `ml/eval`: 12 вымышленных историй болезни, эталон черновой ([ml/eval/README.md](ml/eval/README.md)) |
-| Автотесты | 71: backend 64, ml 7 | `pytest --collect-only -q` в `backend/` и `ml/`; все проходят |
+| Автотесты | 72: backend 65, ml 7 | `pytest --collect-only -q` в `backend/` и `ml/`; все проходят |
 
 ## Тесты
 
 ```bash
-cd backend && .venv/Scripts/python -m pytest -q          # 64 теста: API, правила, база знаний, сценарии
+cd backend && .venv/Scripts/python -m pytest -q          # 65 тестов: API, правила, база знаний, сценарии
 cd backend && .venv/Scripts/python -m pytest tests/test_kb.py   # только проверка kb/
 cd ml && .venv/Scripts/python -m pytest -q               # 7 тестов: метрики оценки и триаж
 cd ml && .venv/Scripts/python -m eval.run_eval           # метрики извлечения (нужна LLM)
