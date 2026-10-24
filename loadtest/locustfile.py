@@ -1,8 +1,9 @@
 """Нагрузочный тест: время ответа API и доля ошибок под нагрузкой — техметрика кейса.
 
-Виртуальные пациенты открывают главную, пишут дневник, открывают и заполняют GAD-7. Виртуальный врач
-открывает список пациентов, карточки и алерты. На каждого врача приходится 10 пациентов. Учётные записи
-создаются в начале прогона через обычный API; у каждого прогона свой врач load-…@example.com.
+Виртуальные пациенты открывают главную (расписание шкал, дневник, напоминания), пишут дневник, открывают
+и заполняют GAD-7. Виртуальный врач открывает список пациентов, карточки и алерты. На каждого врача приходится
+10 пациентов. Учётные записи создаются в начале прогона через обычный API; у каждого прогона свой врач
+load-…@example.com.
 
     pip install -r loadtest/requirements.txt
     locust -f loadtest/locustfile.py --host http://localhost:8000     # веб-интерфейс: http://localhost:8089
@@ -87,6 +88,7 @@ class Patient(HttpUser):
     def home(self):
         self.client.get("/api/patient/scales/schedule", headers=self.headers, name="пациент: расписание шкал")
         self.client.get("/api/patient/diary", headers=self.headers, name="пациент: дневник")
+        self.client.get("/api/patient/reminders", headers=self.headers, name="пациент: напоминания")
 
     @task(2)
     def write_diary(self):
