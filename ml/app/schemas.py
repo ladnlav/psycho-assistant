@@ -7,17 +7,17 @@ from pydantic import BaseModel, Field
 
 
 class Diagnosis(BaseModel):
-    icd10: str | None = Field(None, description="Код МКБ-10, если указан или однозначно следует из текста")
+    icd10: str | None = Field(None, description="Код МКБ-10, если указан или однозначно следует из текста - сюда учитываются все болезни связанные с ЦНС/психиатрией/неврологией")
     text: str
     evidence: str | None = None
 
 
 class Medication(BaseModel):
     name: str = Field(description="МНН или торговое название, как в тексте")
-    dose: str | None = None
-    frequency: str | None = None
-    status: Literal["current", "past", "unknown"] = "unknown"
-    evidence: str | None = None
+    dose: str | None = Field(None, description="например, масса или количество таблеток, как в тексте")
+    frequency: str | None = Field(None, description="Раз в какое время, как в тексте")
+    status: Literal["current", "past", "unknown"] = Field("unknown", description="Для назначенных и которые уже пациент принимает - current, которые закончил принимать - past")
+    evidence: str | None = Field(None, description="Кратко с главной сутью и дословно")
 
 
 class Allergy(BaseModel):
@@ -33,13 +33,13 @@ class Condition(BaseModel):
 
 
 class ScaleScore(BaseModel):
-    scale: str = Field(description="Название шкалы: GAD-7, PHQ-9, HAM-A, …")
+    scale: str = Field(description="Название шкалы: GAD-7, PHQ-9, HAM-A, AUDIT и другие")
     score: float
     evidence: str | None = None
 
 
 class ExtractionResult(BaseModel):
-    age: int | None = None
+    age: int | None = Field(None, description="Определяется исключительно по прямому упоминанию возраста тексте (дата рождения не учитывается)")
     sex: Literal["male", "female"] | None = None
     complaints: list[str] = []
     diagnoses: list[Diagnosis] = []
@@ -48,7 +48,7 @@ class ExtractionResult(BaseModel):
     allergies: list[Allergy] = []
     scale_scores: list[ScaleScore] = []
     risk_flags: list[Literal["suicidal_ideation", "self_harm", "psychotic_symptoms", "substance_use",
-                             "pregnancy"]] = Field(default=[], description="Только если явно упомянуто как наличие")
+                             "pregnancy"]] = Field(default=[], description="Только если явно упомянуто как наличие pregnancy - беременности, substance_use - алкоголизма/наркомании, self_harm - действий направленных на самоповреждение, например, намеренные порезы, suicidal_ideation - в анамнезе если человек сам говорит о том что хочет умереть, psychotic_symptoms - если пациент бредит/галлюцинирует/теряет контакт с реальностью в контексте психотических симптомов, всё перечисленное только при прямом упоминании в тексте")
 
 
 class ExtractRequest(BaseModel):
