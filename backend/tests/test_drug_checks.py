@@ -54,6 +54,19 @@ def test_missing_data_goes_to_doctor():
     assert warnings["children"].detail_ru == "нет даты рождения"
 
 
+def test_dx_matches_code_prefixes():
+    """Префиксы МКБ-10, как в пунктах об органических заболеваниях мозга: 'I6' — I60–I69, 'F0' — вместе с F07.2."""
+    drug = Drug(id="prefixdrug", trade_name="Префиксин", inn="префиксин", registered_rf=True, status="draft",
+                contraindications=[DrugCheck(id="brain", text_ru="Органическое заболевание",
+                                             when="dx('I6', 'F0', 'G0', 'G10', 'G93.1', 'Q04')")])
+
+    def fired(code: str) -> bool:
+        return [w.status for w in check(drug, PatientFacts(diagnoses=[code]))] == ["fired"]
+
+    assert all(fired(c) for c in ["I63.5", "F07.2", "g06", "G10", "G93.1", "Q04.3"])
+    assert not any(fired(c) for c in ["I70", "G11.1", "G93.2", "Q05", "F10.2"])
+
+
 def test_kb_rejects_bad_checks():
     with pytest.raises(ValidationError, match="неизвестные имена"):
         DrugCheck(id="weight", text_ru="Масса тела", when="weight > 100")

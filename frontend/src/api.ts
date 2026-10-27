@@ -25,6 +25,8 @@ export interface Scale {
   instruction_ru: string | null;
   options: ScaleOption[];
   items: ScaleItem[];
+  /** Подшкалы (PHQ-4: тревога и депрессия): сумма пунктов ≥ positive_min — положительный скрининг. */
+  subscales: { id: string; name: string; title_ru: string; items: string[]; positive_min: number; label_ru: string }[];
   severity: { min: number; max: number; level: string; label_ru: string }[];
   mcid: number | null;
   sources: string[];

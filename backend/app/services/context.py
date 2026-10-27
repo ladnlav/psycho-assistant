@@ -7,16 +7,16 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.kb import KnowledgeBase
+from app.kb import KnowledgeBase, Scale
 from app.models import (AdverseEvent, DiaryEntry, MedicationIntake, Message, Prescription, ScaleResponse, User,
                         utcnow)
 from app.services.rules import LAST_REPORT, RECORD
 
 
-def _scale_context(db: Session, patient_id: uuid.UUID, scale_id: str, mcid: float | None) -> dict | None:
+def _scale_context(db: Session, patient_id: uuid.UUID, scale: Scale) -> dict | None:
     rows = db.scalars(
         select(ScaleResponse)
-        .where(ScaleResponse.patient_id == patient_id, ScaleResponse.scale_id == scale_id)
+        .where(ScaleResponse.patient_id == patient_id, ScaleResponse.scale_id == scale.id)
         .order_by(ScaleResponse.created_at)
     ).all()
     if not rows:
@@ -25,10 +25,11 @@ def _scale_context(db: Session, patient_id: uuid.UUID, scale_id: str, mcid: floa
     prev = rows[-2] if len(rows) > 1 else None
     return {
         **latest.answers,
+        **{sub.id: sum(latest.answers[i] for i in sub.items) for sub in scale.subscales},
         "total": latest.total,
         "severity": latest.severity,
         "n": len(rows),
-        "mcid": mcid,
+        "mcid": scale.mcid,
         "delta_prev": latest.total - prev.total if prev else 0,
         "delta_baseline": latest.total - first.total,
         RECORD: str(latest.id),
@@ -113,7 +114,7 @@ def build_context(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID,
     now = now or utcnow()
     week_ago = now - timedelta(days=7)
     ctx: dict[str, Any] = {
-        sid: _scale_context(db, patient_id, sid, scale.mcid) for sid, scale in kb.scales.items()
+        sid: _scale_context(db, patient_id, scale) for sid, scale in kb.scales.items()
     }
     ctx["ae"] = {
         "serious_7d": db.scalar(

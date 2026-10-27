@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field, model_validator
 from app.config import get_settings
 
 Status = Literal["draft", "validated"]
+# Имена в контексте шкалы (services/context._scale_context), которые нельзя занять подшкалой.
+SCALE_CONTEXT_NAMES = {"total", "severity", "n", "mcid", "delta_prev", "delta_baseline", "_record"}
 
 
 class Source(BaseModel):
@@ -41,6 +43,15 @@ class SeverityBand(BaseModel):
     label_ru: str
 
 
+class Subscale(BaseModel):
+    id: str              # имя в правилах: <scale_id>.<id> — сумма баллов пунктов
+    name: str
+    title_ru: str
+    items: list[str]
+    positive_min: int    # сумма не меньше — положительный скрининг
+    label_ru: str
+
+
 class License(BaseModel):
     type: Literal["free", "public_domain", "licensed"]
     holder: str | None = None
@@ -64,6 +75,7 @@ class Scale(BaseModel):
     instruction_ru: str | None = None
     options: list[ScaleOption]
     items: list[ScaleItem]
+    subscales: list[Subscale] = []
     severity: list[SeverityBand]
     mcid: float | None = None
     license: License
@@ -86,6 +98,14 @@ class Scale(BaseModel):
             expected = band.max + 1
         if expected - 1 != self.max_total:
             raise ValueError(f"{self.id}: пороги тяжести не покрывают максимум {self.max_total}")
+        item_ids = {item.id for item in self.items}
+        taken = item_ids | SCALE_CONTEXT_NAMES
+        for sub in self.subscales:
+            if unknown := [i for i in sub.items if i not in item_ids]:
+                raise ValueError(f"{self.id}: в подшкале {sub.id} неизвестные пункты {unknown}")
+            if sub.id in taken:
+                raise ValueError(f"{self.id}: имя подшкалы {sub.id} уже занято")
+            taken.add(sub.id)
         return self
 
 

@@ -365,7 +365,8 @@ export function PatientCardPage() {
           <Title order={4} mb="sm">Шкалы</Title>
           {scaleSeries.length ? (
             <LineChart h={220} data={scaleSeries} dataKey="date" connectNulls withLegend
-              series={[{ name: 'gad7', label: 'GAD-7', color: 'violet.6' }, { name: 'phq9', label: 'PHQ-9', color: 'blue.6' }]} />
+              series={[{ name: 'gad7', label: 'GAD-7', color: 'violet.6' }, { name: 'phq9', label: 'PHQ-9', color: 'blue.6' },
+                { name: 'phq4', label: 'PHQ-4', color: 'teal.6' }]} />
           ) : <Text c="dimmed" size="sm">Нет данных</Text>}
         </Card>
         <Card withBorder radius="md">

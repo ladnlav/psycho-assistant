@@ -1,0 +1,59 @@
+id: phq4
+name: PHQ-4
+title_ru: "Опросник здоровья пациента (PHQ-4): тревога и депрессия"
+rater: patient
+status: validated        # текст Золотарёвой, как у GAD-7 и PHQ-9 (решение 24.10); пункты совпадают с ними дословно
+# Раз в неделю — решение команды 27.10. Вопрос задаётся «за последние 2 недели», а каждый день пациент и так
+# заполняет дневник (тревога, настроение, сон).
+schedule_days: 7
+
+instruction_en: "Over the last 2 weeks, how often have you been bothered by the following problems?"
+# Русский текст — дословно из zolotareva2024_phq4_ru, приложение, с. 54. Из инструкции взято первое предложение:
+# шкалу ответов пациент видит у каждого вопроса. Ответы — как у GAD-7 и PHQ-9: с заглавной буквы и без запятой
+# в «более, чем половину» (в статье запятая есть, как и в статье о PHQ-9).
+instruction_ru: "Оцените, пожалуйста, насколько часто следующие проблемы беспокоили вас в течение прошедших двух недель."
+
+options:
+  - { value: 0, label_en: "Not at all", label_ru: "Совсем нет" }
+  - { value: 1, label_en: "Several days", label_ru: "В течение нескольких дней" }
+  - { value: 2, label_en: "More than half the days", label_ru: "Более чем половину этого времени" }
+  - { value: 3, label_en: "Nearly every day", label_ru: "Почти каждый день" }
+
+# Порядок — как в приложении статьи: 1–2 — GAD-2 (тревога), 3–4 — PHQ-2 (депрессия).
+items:
+  - { id: item1, text_en: "Feeling nervous, anxious, or on edge", text_ru: "Чувство тревоги или раздражения" }
+  - { id: item2, text_en: "Not being able to stop or control worrying",
+      text_ru: "Неспособность справиться со своим беспокойством" }
+  - { id: item3, text_en: "Little interest or pleasure in doing things",
+      text_ru: "Снижение интереса и удовольствия от привычных дел" }
+  - { id: item4, text_en: "Feeling down, depressed, or hopeless", text_ru: "Чувство подавленности или безнадежности" }
+
+# Подшкалы: сумма ≥ 3 — положительный скрининг (kroenke2009_phq4; в статье 2024: «Тревога и депрессия считаются
+# клинически значимыми при ≥ 3»). В правилах — phq4.anxiety и phq4.depression.
+subscales:
+  - { id: anxiety, name: GAD-2, title_ru: "тревога", items: [item1, item2], positive_min: 3,
+      label_ru: "положительный скрининг тревоги" }
+  - { id: depression, name: PHQ-2, title_ru: "депрессия", items: [item3, item4], positive_min: 3,
+      label_ru: "положительный скрининг депрессии" }
+
+# Уровни суммы — категории психологического дистресса из kroenke2009_phq4 (так же на бланке PHQ-4); русские
+# названия — наши. В статье 2024 уровней суммы нет. Нормы для общей популяции — lowe2010_phq4.
+severity:
+  - { min: 0, max: 2,  level: normal,   label_ru: "нет дистресса" }
+  - { min: 3, max: 5,  level: mild,     label_ru: "лёгкий дистресс" }
+  - { min: 6, max: 8,  level: moderate, label_ru: "умеренный дистресс" }
+  - { min: 9, max: 12, level: severe,   label_ru: "выраженный дистресс" }
+
+license:
+  type: free
+  holder: Pfizer
+  source: phqscreeners_license
+
+# Русский текст — перевод А.А. Золотаревой из её статей о GAD-7 и PHQ-9; адаптация PHQ-4 — в общей популяции, n=2000.
+# Чувствительность и специфичность PHQ-2 у пациентов терапевтов — pogosova2014_phq9_ru.
+validation_ru:
+  status: confirmed
+  source: zolotareva2024_phq4_ru
+
+sources: [kroenke2009_phq4, lowe2010_phq4, zolotareva2024_phq4_ru, kroenke2003_phq2, kroenke2007_gad2,
+          pogosova2014_phq9_ru]

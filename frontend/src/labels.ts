@@ -22,6 +22,7 @@ export const RECOMMENDATION_STATUS: Record<Exclude<Recommendation['status'], 'pr
 };
 
 export const SEVERITY_COLOR: Record<string, string> = {
+  normal: 'teal', // PHQ-4: нет дистресса
   minimal: 'teal',
   mild: 'lime',
   moderate: 'yellow',
@@ -70,7 +71,7 @@ export function capitalize(text: string): string {
   return text ? text[0].toLocaleUpperCase('ru-RU') + text.slice(1) : text;
 }
 
-const SCALE_NAME: Record<string, string> = { gad7: 'GAD-7', phq9: 'PHQ-9' };
+const SCALE_NAME: Record<string, string> = { gad7: 'GAD-7', phq9: 'PHQ-9', phq4: 'PHQ-4' };
 
 /** Что запустило проверку правил (Alert.trigger). */
 export function triggerLabel(trigger: string | null): string {

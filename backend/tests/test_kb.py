@@ -8,7 +8,7 @@ from app.kb import Scale, load_kb
 
 def test_kb_loads_and_references_resolve():
     kb = load_kb(get_settings().kb_dir)
-    assert {"gad7", "phq9"} <= kb.scales.keys()
+    assert {"gad7", "phq4", "phq9"} <= kb.scales.keys()
     assert "aviandr" in kb.drugs
     assert kb.rules
 
@@ -38,6 +38,15 @@ def _scale(**over):
 def test_licensed_scale_without_permission_rejected():
     with pytest.raises(ValueError, match="лицензируемая"):
         Scale.model_validate(_scale(license={"type": "licensed", "holder": "GL Assessment"}))
+
+
+def test_subscale_must_use_scale_items_and_free_name():
+    sub = {"id": "first", "name": "F", "title_ru": "п", "items": ["item1"], "positive_min": 1, "label_ru": "п"}
+    assert Scale.model_validate(_scale(subscales=[sub])).subscales[0].items == ["item1"]
+    with pytest.raises(ValueError, match="неизвестные пункты"):
+        Scale.model_validate(_scale(subscales=[{**sub, "items": ["item1", "item9"]}]))
+    with pytest.raises(ValueError, match="уже занято"):
+        Scale.model_validate(_scale(subscales=[{**sub, "id": "total"}]))
 
 
 def test_severity_bands_must_cover_range():
