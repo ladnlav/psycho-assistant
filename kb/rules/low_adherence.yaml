@@ -6,4 +6,4 @@ status: draft
 when: "pdc_7d < 0.8"
 actions: [notify_doctor, remind_patient]
 remind_ru: "За неделю приём препарата отмечен не каждый день. Если пропускаете приём или с лечением есть сложности — напишите врачу."
-sources: [grls_aviandr]
+sources: [grls_aviandr, team_adherence_80]   # порог 80 % — врач команды, 27.10
