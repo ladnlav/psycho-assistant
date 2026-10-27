@@ -7,8 +7,9 @@ from pydantic import BaseModel, Field
 
 
 class Diagnosis(BaseModel):
-    icd10: str | None = Field(None, description="Код МКБ-10, если указан или однозначно следует из текста - сюда учитываются все болезни связанные с ЦНС/психиатрией/неврологией")
+    icd10: str | None = Field(None, description="Код МКБ-10, явно указанный рядом с диагнозом. Обязательно скопируй, если он есть; иначе null.")
     text: str
+    status: Literal["confirmed", "suspected"] = Field("confirmed", description="если после диагноза есть '?' - suspected")
     evidence: str | None = None
 
 
@@ -27,8 +28,9 @@ class Allergy(BaseModel):
 
 
 class Condition(BaseModel):
+    icd10: str | None = Field(None, description="Код МКБ-10, явно указанный рядом с диагнозом. Обязательно скопируй, если он есть; иначе null.")
     text: str
-    icd10: str | None = None
+    status: Literal["confirmed", "suspected"] = Field("confirmed", description="если после диагноза есть '?' - suspected")
     evidence: str | None = None
 
 
@@ -42,8 +44,14 @@ class ExtractionResult(BaseModel):
     age: int | None = Field(None, description="Определяется исключительно по прямому упоминанию возраста тексте (дата рождения не учитывается)")
     sex: Literal["male", "female"] | None = None
     complaints: list[str] = []
-    diagnoses: list[Diagnosis] = []
-    comorbidities: list[Condition] = []
+    diagnoses: list[Diagnosis] = Field(
+        default_factory=list,
+        description="Все психиатрические и неврологические диагнозы, включая заболевания центральной, периферической и вегетативной нервной системы."
+    )
+    comorbidities: list[Condition] = Field(
+        default_factory=list,
+        description="Остальные заболевания, не относящиеся к психиатрическим или неврологическим."
+    )
     medications: list[Medication] = []
     allergies: list[Allergy] = []
     scale_scores: list[ScaleScore] = []
