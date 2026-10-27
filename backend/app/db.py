@@ -15,7 +15,9 @@ def _make_engine(url: str):
     if url.startswith("sqlite") and ":memory:" in url:
         # Тесты: одна общая in-memory база на все соединения.
         return create_engine(url, connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    return create_engine(url, pool_pre_ping=True)
+    # Синхронные эндпоинты FastAPI работают в пуле из 40 потоков: столько же соединений с базой (20 + 20 сверх),
+    # иначе при 100 пользователях запросы ждали свободное соединение (по умолчанию 5 + 10) и падали через 30 с.
+    return create_engine(url, pool_pre_ping=True, pool_size=20, max_overflow=20)
 
 
 engine = _make_engine(get_settings().database_url)
