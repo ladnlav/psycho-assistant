@@ -20,6 +20,7 @@ from app.services.audit import audit
 from app.services.clinical import record_scale
 from app.services.context import pdc_7d
 from app.services.drug_checks import check_prescription
+from app.services.referrals import close_after_referral
 
 router = APIRouter(prefix="/api/doctor", tags=["doctor"])
 
@@ -205,11 +206,13 @@ def decide(rec_id: uuid.UUID, body: Decision, doctor: User = Depends(require_doc
     if rec.status != "proposed":
         raise HTTPException(409, "Решение уже принято")
     rec.status, rec.decided_by, rec.decided_at, rec.decision_note = body.decision, doctor.id, utcnow(), body.note
+    audit(db, doctor.id, f"recommendation.{body.decision}", "recommendation", rec.id, {"note": body.note})
     if body.decision == "accepted" and rec.kind == "referral":
         db.add(Referral(patient_id=rec.patient_id, recommendation_id=rec.id, to_specialty=rec.payload["to"],
                         level=rec.payload["level"], reason=rec.payload.get("reason_ru", ""),
                         confirmed_by=doctor.id))
-    audit(db, doctor.id, f"recommendation.{body.decision}", "recommendation", rec.id, {"note": body.note})
+        db.flush()  # autoflush выключен: без этого rec в базе ещё «proposed» и закрылся бы с остальными
+        close_after_referral(db, doctor.id, rec.patient_id, rec.payload["to"])
     db.commit()
     return rec
 
@@ -217,13 +220,15 @@ def decide(rec_id: uuid.UUID, body: Decision, doctor: User = Depends(require_doc
 @router.post("/patients/{patient_id}/referrals", response_model=ReferralOut)
 def create_referral(patient_id: uuid.UUID, body: ReferralIn, doctor: User = Depends(require_doctor),
                     db: Session = Depends(get_db)):
-    """Направление по решению врача, без предложения правила: уровень и причину врач указывает сам."""
+    """Направление по решению врача, без предложения правила: уровень и причину врач указывает сам.
+    Открытые предложения правил к тому же специалисту закрываются: пациент уже направлен."""
     ensure_own_patient(db, doctor, patient_id)
     ref = Referral(patient_id=patient_id, to_specialty=body.to_specialty, level=body.level, reason=body.reason,
                    confirmed_by=doctor.id)
     db.add(ref)
     db.flush()
     audit(db, doctor.id, "referral.created", "referral", ref.id, body.model_dump())
+    close_after_referral(db, doctor.id, patient_id, body.to_specialty)
     db.commit()
     return ref
 

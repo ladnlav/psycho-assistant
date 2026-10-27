@@ -69,10 +69,10 @@ export interface Recommendation {
   payload: { to?: string; level?: ReferralLevel; reason_ru?: string };
   sources: string[];
   rule_id: string | null;
-  status: 'proposed' | 'accepted' | 'rejected';
+  status: 'proposed' | 'accepted' | 'rejected' | 'superseded'; // superseded — закрыто: уже направлен
   created_at: string;
   decided_at: string | null;
-  decision_note: string | null;
+  decision_note: string | null; // у superseded — почему закрыто
 }
 export type ReferralSpecialty = 'psychiatrist' | 'psychotherapist' | 'neurologist';
 /** Направление по решению врача, без предложения правила (POST /doctor/patients/{id}/referrals). */

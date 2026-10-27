@@ -20,16 +20,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
-from app.kb import KnowledgeBase, Rule
-from app.models import Alert, DoctorPatientLink, Recommendation, utcnow
+from app.kb import KnowledgeBase, Proposal, Rule
+from app.models import Alert, DoctorPatientLink, utcnow
 from app.services.audit import audit
 from app.services.context import build_context
+from app.services.referrals import propose_referral
 from app.services.rules import TIME_ANCHORS, evaluate, evidence, referenced_names
 
 log = logging.getLogger(__name__)
-
-# «Направить к …» — дательный падеж специальности из kb/rules (propose.to)
-REFERRAL_TO_RU = {"psychiatrist": "психиатру", "psychotherapist": "психотерапевту", "neurologist": "неврологу"}
 
 
 @dataclass
@@ -52,16 +50,6 @@ def lead_doctor_id(db: Session, patient_id: uuid.UUID) -> uuid.UUID | None:
     )
 
 
-def has_pending_proposal(db: Session, patient_id: uuid.UUID, rule_id: str, kind: str, to: str) -> bool:
-    pending = db.scalars(
-        select(Recommendation).where(
-            Recommendation.patient_id == patient_id, Recommendation.rule_id == rule_id,
-            Recommendation.kind == kind, Recommendation.status == "proposed",
-        )
-    )
-    return any(r.payload.get("to") == to for r in pending)
-
-
 def apply_rules(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, trigger: str,
                 rules: Iterable[Rule] | None = None, now: datetime | None = None) -> RulesOutcome:
     """Вычисляет правила по свежим данным пациента и реагирует только на новые данные.
@@ -69,9 +57,12 @@ def apply_rules(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, trigger: 
     Правило смотрит на состояние, поэтому срабатывает при каждой записи пациента. У алерта хранится отпечаток
     данных (rules.evidence): с тем же отпечатком нет ни нового алерта, ни экрана безопасности. Пока алерт
     не подтверждён, новые данные дописываются в него, а не порождают второй, и алерт отправляется врачу заново
-    (outcome.updated_alert_ids). Коммит — на вызывающей стороне.
+    (outcome.updated_alert_ids). Предложение направить к специалисту появляется только с новым алертом, если
+    пациент к этому специалисту не направлен и предложение к нему ещё не ждёт решения (services/referrals).
+    Коммит — на вызывающей стороне.
     """
     outcome = RulesOutcome()
+    proposals: list[tuple[Alert, Rule, Proposal]] = []
     doctor_id = lead_doctor_id(db, patient_id)
     context = build_context(db, kb, patient_id, now)
     for rule in evaluate(kb.rules.values() if rules is None else rules, context):
@@ -106,20 +97,14 @@ def apply_rules(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, trigger: 
         db.add(alert)
         db.flush()
         outcome.new_alert_ids.append(alert.id)
-        for p in rule.propose:
-            if has_pending_proposal(db, patient_id, rule.id, p.kind, p.to):
-                continue  # прежнее предложение ещё ждёт решения врача
-            db.add(
-                Recommendation(
-                    patient_id=patient_id,
-                    kind=p.kind,
-                    title=f"Направить к {REFERRAL_TO_RU.get(p.to, p.to)}",
-                    payload={"to": p.to, "level": p.level, "reason_ru": p.reason_ru},
-                    sources=rule.sources,
-                    rule_id=rule.id,
-                )
-            )
+        proposals += [(alert, rule, p) for p in rule.propose]
         audit(db, None, "alert.created", "alert", alert.id, {"rule": rule.id, "level": rule.level})
+    # Предложения — после всех алертов и сначала «обязательно»: «желательно» к тому же специалисту
+    # из этого же вызова тогда не нужно. Алерт без предложения хранит, почему его нет.
+    for alert, rule, p in sorted(proposals, key=lambda x: x[2].level != "mandatory"):
+        if (skipped := propose_referral(db, patient_id, rule, p)) is not None:
+            note = {"to": p.to, "reason": skipped}
+            alert.details = {**alert.details, "no_proposal": [*alert.details.get("no_proposal", []), note]}
     return outcome
 
 

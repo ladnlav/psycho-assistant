@@ -202,7 +202,7 @@ class RecommendationOut(ORM):
     payload: dict[str, Any]
     sources: list[str]
     rule_id: str | None
-    status: str
+    status: str  # proposed | accepted | rejected | superseded — закрыто: уже направлен
     created_at: datetime
     decided_at: datetime | None
     decision_note: str | None

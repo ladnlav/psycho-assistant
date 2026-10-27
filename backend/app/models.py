@@ -16,7 +16,7 @@ JSONType = JSON().with_variant(JSONB(), "postgresql")
 ROLES = ("doctor", "patient")
 ALERT_LEVELS = ("critical", "high", "medium")
 REFERRAL_LEVELS = ("mandatory", "desirable")
-DECISION_STATUSES = ("proposed", "accepted", "rejected")
+DECISION_STATUSES = ("proposed", "accepted", "rejected", "superseded")  # superseded: services/referrals
 
 
 def utcnow() -> datetime:

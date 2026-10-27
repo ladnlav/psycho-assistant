@@ -1,4 +1,4 @@
-import type { AlertLevel, DrugWarning, ReferralLevel } from './api';
+import type { AlertLevel, DrugWarning, Recommendation, ReferralLevel } from './api';
 
 // Визуальное различение — обязательное условие кейса:
 // уровни алертов, «обязательно» / «желательно» и предупреждения безопасности не должны путаться.
@@ -11,6 +11,14 @@ export const ALERT_LEVEL: Record<AlertLevel, { label: string; color: string }> =
 export const REFERRAL_LEVEL: Record<ReferralLevel, { label: string; color: string; variant: 'filled' | 'outline' }> = {
   mandatory: { label: 'ОБЯЗАТЕЛЬНО', color: 'red', variant: 'filled' },
   desirable: { label: 'ЖЕЛАТЕЛЬНО', color: 'blue', variant: 'outline' },
+};
+
+/** Чем закончилось предложение ассистента; superseded — закрыто без решения, причина в decision_note. */
+export const RECOMMENDATION_STATUS: Record<Exclude<Recommendation['status'], 'proposed'>,
+  { label: string; color: string }> = {
+  accepted: { label: 'принято врачом', color: 'teal' },
+  rejected: { label: 'отклонено врачом', color: 'gray' },
+  superseded: { label: 'закрыто', color: 'gray' },
 };
 
 export const SEVERITY_COLOR: Record<string, string> = {

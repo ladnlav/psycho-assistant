@@ -11,8 +11,8 @@ import { AlertLevelBadge, ReferralBadge } from '../../components/Badges';
 import { Chat } from '../../components/Chat';
 import { DrugWarnings } from '../../components/DrugWarnings';
 import { Sources } from '../../components/Sources';
-import { ALERT_LEVEL, REFERRAL_LEVEL, SPECIALTY, capitalize, evidenceRows, formatDate, formatDateTime, plural,
-  triggerLabel } from '../../labels';
+import { ALERT_LEVEL, RECOMMENDATION_STATUS, REFERRAL_LEVEL, SPECIALTY, capitalize, evidenceRows, formatDate,
+  formatDateTime, plural, triggerLabel } from '../../labels';
 
 /** «доставлено за 15 мс» / «за 2,3 с»; если врач был не в сети — когда алерт пришёл при подключении. */
 function deliveryText(a: Alert): string {
@@ -130,9 +130,11 @@ function RecommendationItem({ rec, patientId }: { rec: Recommendation; patientId
       api(`/doctor/recommendations/${rec.id}/decision`, { body: { decision } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['card', patientId] }),
   });
+  // Закрытое без решения (пациент уже направлен) приглушено и без красной рамки: решения оно не ждёт.
+  const closed = rec.status === 'superseded';
   return (
-    <Card withBorder radius="md" style={rec.payload.level === 'mandatory' ? { borderColor: 'var(--mantine-color-red-6)',
-      borderWidth: 2 } : undefined}>
+    <Card withBorder radius="md" style={closed ? { opacity: 0.6 } : rec.payload.level === 'mandatory'
+      ? { borderColor: 'var(--mantine-color-red-6)', borderWidth: 2 } : undefined}>
       <Stack gap="xs">
         <Group justify="space-between">
           <Group gap="xs">
@@ -140,8 +142,9 @@ function RecommendationItem({ rec, patientId }: { rec: Recommendation; patientId
             <Text fw={600}>{rec.title}</Text>
           </Group>
           {rec.status !== 'proposed' && (
-            <Badge color={rec.status === 'accepted' ? 'teal' : 'gray'}>
-              {rec.status === 'accepted' ? 'принято врачом' : 'отклонено врачом'}
+            <Badge color={RECOMMENDATION_STATUS[rec.status].color} variant={closed ? 'outline' : 'filled'}>
+              {RECOMMENDATION_STATUS[rec.status].label}
+              {closed && `: ${rec.decision_note || 'уже направлен'}`}
             </Badge>
           )}
         </Group>
