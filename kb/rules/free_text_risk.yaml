@@ -1,7 +1,7 @@
 id: free_text_risk
 title_ru: "Мысли о смерти или самоповреждении в словах пациента"
 level: critical
-status: draft            # TODO(Савва): сверить действия с КР. Словарь триажа — ml/app/triage.py (Матвей)
+status: validated        # подтверждено командой 27.10. Словарь триажа — ml/app/triage.py (Матвей)
 # Текст размечает триаж ml-сервиса: сообщения врачу и описания нежелательных явлений (имя text.critical).
 when: "text.critical"
 actions: [notify_doctor, patient_safety_screen]

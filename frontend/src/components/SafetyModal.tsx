@@ -28,7 +28,7 @@ export function SafetyModal({ safety, onClose, askReason = false }:
           <Text>{safety.message_ru}</Text>
           {safety.contacts.map((c) => (
             <Text key={c.phone} size="lg">
-              {c.title_ru}: <Anchor href={`tel:${c.phone}`} fw={700}>{c.phone}</Anchor>
+              {c.title_ru}: <Anchor href={`tel:${c.phone.replace(/[^\d+]/g, '')}`} fw={700}>{c.phone}</Anchor>
             </Text>
           ))}
           {askReason && (

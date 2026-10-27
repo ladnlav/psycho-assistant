@@ -1,7 +1,7 @@
 id: phq9_suicidal_ideation
 title_ru: "Мысли о смерти или самоповреждении (PHQ-9, пункт 9)"
 level: critical
-status: draft            # TODO(Савва): сверить порог и действия с КР
+status: validated        # маршрут подтвердили три врача на апробации 25–26.10 и команда 27.10
 when: "phq9.item9 >= 1"
 actions: [notify_doctor, patient_safety_screen]
 propose:
