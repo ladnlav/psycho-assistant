@@ -1,4 +1,4 @@
-"""C9: нет записей пациента 3 дня — напоминание в приложении, 5 дней — алерт врачу. Молчание не порождает
+"""Нет записей пациента 3 дня — напоминание в приложении, 5 дней — алерт врачу. Молчание не порождает
 записей, поэтому правила проверяются ещё и по расписанию (services/alerts.check_all_patients)."""
 
 import uuid
@@ -75,7 +75,7 @@ def test_five_days_alert_doctor_once_per_silence(client, doctor_token, patient_t
 
 
 def test_schedule_checks_only_time_rules(client, doctor_token, patient_token):
-    """У молчащего пациента нет отметок приёма; «низкая приверженность» по расписанию не должна обгонять C9."""
+    """У молчащего пациента нет отметок приёма; «низкая приверженность» по расписанию не должна обгонять правило «нет записей»."""
     pid = patient_id(client, doctor_token)
     doctor_id = uuid.UUID(client.get("/api/auth/me", headers=auth(doctor_token)).json()["id"])
     with SessionLocal() as db:

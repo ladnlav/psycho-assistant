@@ -140,7 +140,7 @@ def test_dosing_frequency_wording():
 
 
 def test_aviandr_dosing_reaches_form():
-    """Значения — из инструкции ГРЛС (их сверяет Савва), здесь проверяем только, что форма их получит."""
+    """Значения — из инструкции ГРЛС (их сверяет врач команды), здесь проверяем только, что форма их получит."""
     assert dosing(get_kb().drugs["aviandr"]) is not None
 
 

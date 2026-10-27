@@ -5,7 +5,7 @@
 
 Нужен демо-врач из app.seed; пароль пациентов сценариев — SEED_PASSWORD. Даты считаются от сегодняшнего дня:
 последняя неделя сценария заканчивается вчера, а сегодняшний день пустой — его показывают на демо.
-С last_report_days_ago > 1 история кончается раньше: пациент перестал вести записи (правила C9).
+С last_report_days_ago > 1 история кончается раньше: пациент перестал вести записи (правила «нет записей 3 и 5 дней»).
 Формат файла — scenarios/README.md.
 """
 
@@ -87,7 +87,7 @@ class Scenario(BaseModel):
     past_medications: list[str] = []
     prescribe_aviandr: bool = False
     aviandr_dose_mg: float | None = None
-    last_report_days_ago: int = Field(1, ge=1)  # 1 — последняя запись вчера; больше — пациент перестал писать (C9)
+    last_report_days_ago: int = Field(1, ge=1)  # 1 — последняя запись вчера; больше — пациент перестал писать
     weeks: list[Week] = []
     expected: dict[str, str] = {}
 

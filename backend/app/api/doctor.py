@@ -52,7 +52,7 @@ def _diagnoses(db: Session, patient_id: uuid.UUID) -> list[DiagnosisOut]:
 @router.get("/patients", response_model=list[PatientSummary])
 def list_patients(doctor: User = Depends(require_doctor), db: Session = Depends(get_db)):
     """Список пациентов врача, отсортированный по риску (сначала открытые критические алерты).
-    TODO(Влад): заменить на индекс риска с разбором факторов."""
+    Дальше: индекс риска с разбором факторов."""
     patients = db.scalars(
         select(User).join(DoctorPatientLink, DoctorPatientLink.patient_id == User.id)
         .where(DoctorPatientLink.doctor_id == doctor.id, DoctorPatientLink.active.is_(True))
