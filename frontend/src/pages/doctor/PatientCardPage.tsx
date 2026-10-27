@@ -176,6 +176,14 @@ function PrescribeForm({ patientId }: { patientId: string }) {
   const { data: check } = useQuery({ queryKey: ['rx-check', patientId, AVIANDR.drug_id],
     queryFn: () => api<PrescriptionCheck>(`/doctor/patients/${patientId}/prescriptions/check`, { body: AVIANDR }) });
   const warnings = check?.warnings ?? [];
+  // Доза и кратность по умолчанию — из инструкции (kb/drugs, dosing), один раз; дальше их меняет врач.
+  const dosing = check?.dosing;
+  const [prefilled, setPrefilled] = useState(false);
+  if (dosing && !prefilled) {
+    setPrefilled(true);
+    setDose(dosing.single_mg);
+    setFrequency(dosing.frequency_ru);
+  }
   const needReason = warnings.some((w) => w.requires_reason);
   const ready = !!check && warnings.every((w) => acked[w.id]) && (!needReason || note.trim() !== '');
   const create = useMutation({
@@ -203,6 +211,7 @@ function PrescribeForm({ patientId }: { patientId: string }) {
         <TextInput label="Режим" placeholder="по инструкции" value={frequency} onChange={(e) => setFrequency(e.currentTarget.value)} />
         <Button disabled={!ready} loading={create.isPending} onClick={() => create.mutate()}>Назначить Авиандр</Button>
       </Group>
+      {dosing?.schedule_ru && <Text size="xs" c="dimmed">По инструкции (ГРЛС): {dosing.schedule_ru}</Text>}
       {create.isError && <MAlert color="red" variant="light">{(create.error as Error).message}</MAlert>}
     </Stack>
   );

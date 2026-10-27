@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { Alert, Anchor, Button, Checkbox, Paper, PasswordInput, SegmentedControl, Select, Stack, Text, TextInput,
   Title } from '@mantine/core';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { api } from '../api';
 import { useAuth } from '../auth';
 
 export function RegisterPage() {
   const { signIn } = useAuth();
+  const [params] = useSearchParams();
   const [role, setRole] = useState<'patient' | 'doctor'>('patient');
-  const [form, setForm] = useState({ full_name: '', email: '', password: '', invite_code: '', specialty: 'therapist' });
+  // Ссылка из приглашения врача: /register?code=КОД — код подставляется сам.
+  const [form, setForm] = useState({ full_name: '', email: '', password: '',
+    invite_code: (params.get('code') ?? '').trim().toUpperCase(), specialty: 'therapist' });
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

@@ -43,6 +43,12 @@ def list_invites(doctor: User = Depends(require_doctor), db: Session = Depends(g
     return db.scalars(select(Invite).where(Invite.doctor_id == doctor.id).order_by(Invite.created_at.desc())).all()
 
 
+def _diagnoses(db: Session, patient_id: uuid.UUID) -> list[DiagnosisOut]:
+    return [DiagnosisOut(id=d.id, icd10=d.icd10, title=d.title, confirmed=d.confirmed_by is not None)
+            for d in db.scalars(select(Diagnosis).where(Diagnosis.patient_id == patient_id)
+                                .order_by(Diagnosis.created_at, Diagnosis.icd10))]
+
+
 @router.get("/patients", response_model=list[PatientSummary])
 def list_patients(doctor: User = Depends(require_doctor), db: Session = Depends(get_db)):
     """Список пациентов врача, отсортированный по риску (сначала открытые критические алерты).
@@ -62,7 +68,7 @@ def list_patients(doctor: User = Depends(require_doctor), db: Session = Depends(
             last[row.scale_id] = ScaleResult.model_validate(row)
         top = max(open_alerts, key=lambda lvl: LEVEL_RANK.get(lvl, 0), default=None)
         out.append(PatientSummary(id=p.id, full_name=p.full_name, open_alerts=len(open_alerts),
-                                  top_alert_level=top, last_scores=last))
+                                  top_alert_level=top, last_scores=last, diagnoses=_diagnoses(db, p.id)))
     out.sort(key=lambda s: (-LEVEL_RANK.get(s.top_alert_level or "", 0), -s.open_alerts, s.full_name))
     return out
 
@@ -87,9 +93,7 @@ def patient_card(patient_id: uuid.UUID, doctor: User = Depends(require_doctor), 
         id=patient_id,
         full_name=user.full_name,
         birth_date=profile.birth_date if profile else None,
-        diagnoses=[DiagnosisOut(id=d.id, icd10=d.icd10, title=d.title, confirmed=d.confirmed_by is not None)
-                   for d in db.scalars(select(Diagnosis).where(Diagnosis.patient_id == patient_id)
-                                       .order_by(Diagnosis.created_at, Diagnosis.icd10))],
+        diagnoses=_diagnoses(db, patient_id),
         scales=scales,
         diary=[DiaryOut.model_validate(d) for d in db.scalars(
             select(DiaryEntry).where(DiaryEntry.patient_id == patient_id).order_by(DiaryEntry.day))],
@@ -122,7 +126,8 @@ def _ensure_registered(kb: KnowledgeBase, body: PrescriptionIn) -> None:
 @router.post("/patients/{patient_id}/prescriptions/check", response_model=PrescriptionCheck)
 def check_prescription_endpoint(patient_id: uuid.UUID, body: PrescriptionIn, doctor: User = Depends(require_doctor),
                                 db: Session = Depends(get_db), kb: KnowledgeBase = Depends(get_kb)):
-    """Пункты инструкции, которые врач должен учесть до назначения. Ничего не сохраняет."""
+    """Пункты инструкции, которые врач должен учесть до назначения, и доза по инструкции для формы.
+    Ничего не сохраняет."""
     ensure_own_patient(db, doctor, patient_id)
     _ensure_registered(kb, body)
     return check_prescription(db, kb, patient_id, body)

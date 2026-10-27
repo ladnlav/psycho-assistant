@@ -52,7 +52,11 @@ export interface DrugWarning {
   text_ru: string; section_ru: string; detail_ru: string | null; check_ru: string | null; requires_reason: boolean;
   sources: string[];
 }
-export interface PrescriptionCheck { checked: boolean; notice_ru: string | null; warnings: DrugWarning[] }
+/** Режим дозирования из инструкции (kb/drugs, dosing) — значения по умолчанию в форме назначения. */
+export interface Dosing { single_mg: number; times_per_day: number; frequency_ru: string; schedule_ru: string | null }
+export interface PrescriptionCheck {
+  checked: boolean; notice_ru: string | null; warnings: DrugWarning[]; dosing: Dosing | null;
+}
 
 export interface Alert {
   id: string; patient_id: string; rule_id: string; level: AlertLevel; title: string; sources: string[];
@@ -84,6 +88,7 @@ export interface Referral {
 export interface PatientSummary {
   id: string; full_name: string; open_alerts: number; top_alert_level: AlertLevel | null;
   last_scores: Record<string, ScaleResult>;
+  diagnoses: Diagnosis[];
 }
 export interface Diagnosis { id: string; icd10: string; title: string; confirmed: boolean }
 export interface PatientCard {

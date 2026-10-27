@@ -10,7 +10,7 @@ from app.db import SessionLocal
 from app.kb import Drug, DrugCheck, get_kb
 from app.main import app
 from app.models import AuditLog, Diagnosis
-from app.services.drug_checks import PatientFacts, check
+from app.services.drug_checks import PatientFacts, check, dosing
 from tests.conftest import auth
 
 TEST_DRUG = Drug(
@@ -104,6 +104,31 @@ def test_drug_without_instruction_data_says_so(client, doctor_token, patient_tok
     result = client.post(f"/api/doctor/patients/{pid}/prescriptions/check",
                          json={"drug_id": "emptydrug", "drug_name": "Пустоцин"}, headers=auth(doctor_token)).json()
     assert result["checked"] is False and "ГРЛС" in result["notice_ru"]
+    assert result["dosing"] is None, "без раздела dosing форма назначения остаётся пустой"
+
+
+def test_check_returns_dosing_for_form(client, doctor_token, patient_token, kb_with_testdrug):
+    """Доза и кратность по умолчанию приходят из kb/drugs (dosing), а не зашиты во фронтенде."""
+    kb_with_testdrug.drugs["testdrug"] = TEST_DRUG.model_copy(update={"dosing": {
+        "single_mg": 20, "times_per_day": 2, "schedule_ru": "по 1 таблетке 2 раза в сутки"}})
+    pid = client.get("/api/doctor/patients", headers=auth(doctor_token)).json()[0]["id"]
+    result = client.post(f"/api/doctor/patients/{pid}/prescriptions/check", json=RX,
+                         headers=auth(doctor_token)).json()
+    assert result["dosing"] == {"single_mg": 20, "times_per_day": 2, "frequency_ru": "2 раза в сутки",
+                                "schedule_ru": "по 1 таблетке 2 раза в сутки"}
+
+
+def test_dosing_frequency_wording():
+    def freq(n: int) -> str:
+        return dosing(Drug(id="d", trade_name="Д", inn="д", registered_rf=True, status="draft",
+                           dosing={"single_mg": 10, "times_per_day": n})).frequency_ru
+    assert [freq(n) for n in (1, 2, 3, 5, 12, 22)] == [
+        "1 раз в сутки", "2 раза в сутки", "3 раза в сутки", "5 раз в сутки", "12 раз в сутки", "22 раза в сутки"]
+
+
+def test_aviandr_dosing_reaches_form():
+    """Значения — из инструкции ГРЛС (их сверяет Савва), здесь проверяем только, что форма их получит."""
+    assert dosing(get_kb().drugs["aviandr"]) is not None
 
 
 def test_ask_shows_item_when_card_has_nothing():

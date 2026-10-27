@@ -27,6 +27,16 @@ def test_card_shows_diagnoses_to_own_doctor_only(client, doctor_token, patient_t
     assert client.get(f"/api/doctor/patients/{pid}", headers=auth(other)).status_code == 404
 
 
+def test_patient_list_shows_diagnoses(client, doctor_token, patient_token):
+    pid = client.get("/api/doctor/patients", headers=auth(doctor_token)).json()[0]["id"]
+    with SessionLocal() as db:
+        db.add(Diagnosis(patient_id=uuid.UUID(pid), icd10="F41.1", title="Генерализованное тревожное расстройство"))
+        db.commit()
+    [patient] = client.get("/api/doctor/patients", headers=auth(doctor_token)).json()
+    assert [(d["icd10"], d["title"]) for d in patient["diagnoses"]] == [
+        ("F41.1", "Генерализованное тревожное расстройство")]
+
+
 def test_card_without_diagnoses(client, doctor_token, patient_token):
     pid = client.get("/api/doctor/patients", headers=auth(doctor_token)).json()[0]["id"]
     assert client.get(f"/api/doctor/patients/{pid}", headers=auth(doctor_token)).json()["diagnoses"] == []

@@ -145,10 +145,19 @@ class DrugWarning(BaseModel):
     sources: list[str] = []
 
 
+class Dosing(BaseModel):
+    """Режим дозирования из инструкции (kb/drugs, dosing): значения по умолчанию в форме назначения."""
+    single_mg: float
+    times_per_day: int
+    frequency_ru: str  # «2 раза в сутки»
+    schedule_ru: str | None = None
+
+
 class PrescriptionCheck(BaseModel):
     checked: bool
     notice_ru: str | None = None
     warnings: list[DrugWarning] = []
+    dosing: Dosing | None = None
 
 
 class PrescriptionOut(ORM):
@@ -249,19 +258,20 @@ class MessageSent(MessageOut):
     safety: SafetyScreen | None = None  # экран помощи, если в сообщении есть признаки риска (kb/rules)
 
 
+class DiagnosisOut(BaseModel):
+    id: uuid.UUID
+    icd10: str
+    title: str
+    confirmed: bool = Field(description="подтверждён врачом")
+
+
 class PatientSummary(BaseModel):
     id: uuid.UUID
     full_name: str
     open_alerts: int
     top_alert_level: str | None
     last_scores: dict[str, ScaleResult]
-
-
-class DiagnosisOut(BaseModel):
-    id: uuid.UUID
-    icd10: str
-    title: str
-    confirmed: bool = Field(description="подтверждён врачом")
+    diagnoses: list[DiagnosisOut] = []
 
 
 class PatientCard(BaseModel):

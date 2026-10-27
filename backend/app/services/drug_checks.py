@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.kb import Drug, DrugCheck, KnowledgeBase
 from app.models import Diagnosis, PatientProfile, Prescription, utcnow
-from app.schemas import DrugWarning, PrescriptionCheck, PrescriptionIn
+from app.schemas import Dosing, DrugWarning, PrescriptionCheck, PrescriptionIn
 
 SECTION_RU = {
     "contraindication": "Противопоказания",
@@ -121,13 +121,29 @@ def check(drug: Drug, facts: PatientFacts, sources: list[str] | None = None) -> 
     return sorted(out, key=lambda w: order[w.status])  # sorted() устойчива: внутри статуса порядок инструкции
 
 
+def _times_per_day_ru(n: int) -> str:
+    word = "раза" if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14) else "раз"
+    return f"{n} {word} в сутки"
+
+
+def dosing(drug: Drug) -> Dosing | None:
+    """Доза и кратность из раздела dosing инструкции; без них форма назначения остаётся пустой."""
+    d = drug.dosing
+    if d.get("single_mg") is None or d.get("times_per_day") is None:
+        return None
+    return Dosing(single_mg=d["single_mg"], times_per_day=d["times_per_day"],
+                  frequency_ru=_times_per_day_ru(int(d["times_per_day"])), schedule_ru=d.get("schedule_ru"))
+
+
 def check_prescription(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, body: PrescriptionIn) -> PrescriptionCheck:
     if body.drug_id is None:
         return PrescriptionCheck(checked=False, notice_ru="Препарата нет в базе знаний — инструкция не проверялась")
     drug = kb.drugs[body.drug_id]
     if not drug.has_checks:
         return PrescriptionCheck(
-            checked=False, notice_ru="Данные инструкции из ГРЛС ещё не внесены — противопоказания не проверены")
+            checked=False, notice_ru="Данные инструкции из ГРЛС ещё не внесены — противопоказания не проверены",
+            dosing=dosing(drug))
     # Пункт цитирует инструкцию, а не, например, презентацию производителя.
     instruction = [s for s in drug.sources if s in kb.sources and kb.sources[s].type == "instruction"]
-    return PrescriptionCheck(checked=True, warnings=check(drug, patient_facts(db, kb, patient_id), instruction))
+    return PrescriptionCheck(checked=True, warnings=check(drug, patient_facts(db, kb, patient_id), instruction),
+                             dosing=dosing(drug))
