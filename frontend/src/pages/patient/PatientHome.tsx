@@ -8,6 +8,7 @@ import { api, type AdverseEvent, type AdverseEventSent, type DiaryEntry, type In
 import { useAuth } from '../../auth';
 import { Chat } from '../../components/Chat';
 import { Done } from '../../components/Done';
+import { MyHistory } from '../../components/MyHistory';
 import { SafetyModal } from '../../components/SafetyModal';
 import { AE_SEVERITY, formatDate, formatDateTime } from '../../labels';
 
@@ -249,6 +250,7 @@ export function PatientHome() {
           <Title order={4} mb="sm">Чат с врачом</Title>
           <Chat path="/patient/messages" onSafety={showSafety} />
         </Card>
+        <MyHistory />
       </SimpleGrid>
       <SafetyModal safety={safety} askReason={askReason} onClose={() => setSafety(null)} />
     </Stack>

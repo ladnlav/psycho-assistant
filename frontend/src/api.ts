@@ -49,9 +49,12 @@ export interface Prescription {
   start_date: string; end_date: string | null; active: boolean; // end_date — окончание или отмена врачом
 }
 export interface Intake { id: string; prescription_id: string; day: string; status: 'taken' | 'missed' }
+/** Последнее значение анализа из карточки рядом с пунктом инструкции; value null — результата нет. */
+export interface LabValue { analyte: string; title_ru: string; unit: string | null; value: number | null; taken_on: string | null }
 export interface DrugWarning {
   id: string; kind: 'contraindication' | 'caution' | 'interaction'; status: 'fired' | 'manual' | 'unchecked';
   text_ru: string; section_ru: string; detail_ru: string | null; check_ru: string | null; requires_reason: boolean;
+  labs: LabValue[]; // анализы из карточки, которые относятся к пункту (lab() и labs в kb/drugs)
   sources: string[];
 }
 /** Режим дозирования из инструкции (kb/drugs, dosing) — значения по умолчанию в форме назначения. */
@@ -92,7 +95,37 @@ export interface PatientSummary {
   last_scores: Record<string, ScaleResult>;
   diagnoses: Diagnosis[];
 }
-export interface Diagnosis { id: string; icd10: string; title: string; confirmed: boolean }
+/** Откуда диагноз: выписка, осмотр, со слов пациента, МИС или другое (source_note — своими словами). */
+export type DiagnosisSource = 'discharge' | 'exam' | 'patient' | 'mis' | 'other';
+export type LabSource = 'lab' | 'discharge' | 'mis' | 'patient' | 'other';
+export interface Diagnosis {
+  id: string; icd10: string; title: string; confirmed: boolean;
+  source: DiagnosisSource | null; // null — не указано (внесён до 27.10)
+  source_note: string | null;
+  diagnosed_on: string | null; // дата постановки
+}
+export interface DiagnosisSourceIn { source: DiagnosisSource; source_note: string | null; diagnosed_on: string | null }
+export interface DiagnosisIn extends DiagnosisSourceIn { icd10: string; title: string }
+export interface AnamnesisIn { complaints: string | null; history: string | null; notes: string | null }
+export interface Anamnesis extends AnamnesisIn {
+  updated_at: string | null; // null — анамнез ещё не заполняли
+  updated_by_name: string | null;
+}
+export interface LabTest { id: string; title_ru: string; name_ru: string | null; unit: string | null } // kb/labs.yaml
+export interface LabResultIn {
+  analyte: string; value: number; taken_on: string; source: LabSource; source_note: string | null;
+}
+export interface LabResult {
+  id: string; analyte: string; value: number; unit: string | null; taken_on: string; source: LabSource;
+  source_note: string | null; created_at: string;
+}
+/** Раздел «Анамнез» у врача и «Моя история» у пациента. */
+export interface PatientHistory {
+  anamnesis: Anamnesis;
+  diagnoses: Diagnosis[];
+  labs: LabResult[]; // все результаты, сначала последние по дате сдачи
+  lab_tests: LabTest[]; // показатели из kb/labs.yaml в порядке файла
+}
 export interface PatientCard {
   id: string;
   full_name: string;

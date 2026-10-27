@@ -20,8 +20,17 @@ title_ru: "…"
 status: draft                   # draft → validated после проверки врачом
 author_ru: "врач команды"
 patient: { full_name: "Сценарий 1: …", email: scenario1@example.com, sex: male, age: 63 }
+anamnesis:                            # раздел «Анамнез» у врача и «Моя история» у пациента
+  complaints: "…"                     # жалобы — пересказом, не дословно
+  history: "…"                        # история заболевания
+  notes: "…"                          # примечания; записаны от имени демо-врача в первый день истории
 diagnoses:
-  - { icd10: "F41.1", title: "Генерализованное тревожное расстройство" }
+  - { icd10: "F41.1", title: "Генерализованное тревожное расстройство",
+      source: exam,                   # discharge (выписка) | exam (осмотр) | patient (со слов) | mis (МИС) | other
+      source_note: "первичный приём", # какая выписка, чей осмотр; для other — обязательно
+      diagnosed_ago: start }          # start — первый день истории; 8m, 2y, 14d — столько назад от сегодня
+labs:                                 # анализы: id из kb/labs.yaml, единица — оттуда же
+  - { analyte: egfr, value: 51, days_ago: 10, source: lab, source_note: "поликлиника" }
 past_medications: ["Пароксетин"]      # до Авиандра, уже отменены
 prescribe_aviandr: true               # false — врач назначает на демо
 aviandr_dose_mg: null                 # только по инструкции ГРЛС

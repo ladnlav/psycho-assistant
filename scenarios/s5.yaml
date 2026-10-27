@@ -13,8 +13,25 @@ patient:
   sex: female
   age: 29
 
+# Анамнез — пересказ complaints_ru, черновик команды 27.10. TODO(Савва): проверить правдоподобие.
+anamnesis:
+  complaints: >-
+    Тревога и напряжение, трудно засыпать.
+  history: >-
+    Тревога и напряжение появились после смены работы несколько месяцев назад: волнуется, что не справится,
+    подолгу не может уснуть. Раньше за помощью не обращалась.
+
 diagnoses:
-  - { icd10: "F41.1", title: "Генерализованное тревожное расстройство" }
+  - { icd10: "F41.1", title: "Генерализованное тревожное расстройство", source: exam,
+      source_note: "первичный приём", diagnosed_ago: start }
+
+# Перед назначением; СКФ по CKD-EPI 2021 для женщины 29 лет при креатинине 64 — около 115. TODO(Савва): проверить значения.
+labs:
+  - { analyte: creatinine, value: 64, days_ago: 28, source_note: "поликлиника" }
+  - { analyte: egfr, value: 115, days_ago: 28, source_note: "поликлиника" }
+  - { analyte: alt, value: 15, days_ago: 28, source_note: "поликлиника" }
+  - { analyte: ast, value: 18, days_ago: 28, source_note: "поликлиника" }
+  - { analyte: bilirubin, value: 10, days_ago: 28, source_note: "поликлиника" }
 
 prescribe_aviandr: true
 aviandr_dose_mg: 20                # инструкция ГРЛС: по 20 мг 2 раза в сутки

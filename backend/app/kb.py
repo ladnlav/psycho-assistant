@@ -139,20 +139,53 @@ class Rule(BaseModel):
 
 
 # Имена, доступные в `when` пунктов инструкции (kb/README.md → «Препараты»).
-DRUG_CHECK_NAMES = {"age", "sex", "dx", "taking"}
+DRUG_CHECK_NAMES = {"age", "sex", "dx", "taking", "lab"}
+
+
+def lab_calls(tree: ast.AST) -> list[ast.Call]:
+    return [n for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "lab"]
+
+
+class LabTest(BaseModel):
+    """Лабораторный показатель из kb/labs.yaml: в этой единице врач вносит результат и с ней сравнивают условия."""
+    id: str
+    title_ru: str
+    name_ru: str | None = None
+    unit: str | None = None
+
+
+class LabCatalog(BaseModel):
+    status: Status
+    labs: list[LabTest]
+
+    @model_validator(mode="after")
+    def _unique(self) -> "LabCatalog":
+        ids = [t.id for t in self.labs]
+        if dup := {i for i in ids if ids.count(i) > 1}:
+            raise ValueError(f"labs.yaml: повторяются id {sorted(dup)}")
+        return self
 
 
 class DrugCheck(BaseModel):
     """Пункт инструкции из ГРЛС: противопоказание, «с осторожностью» или взаимодействие.
     Без `when` пункт не проверяется автоматически — врач подтверждает его сам. `ask` — показать врачу
     «проверьте у пациента», даже если в карточке ничего не найдено (true или условие, например sex == 'female').
-    `check_ru` — чем врачу подтвердить или исключить пункт: анализы, осмотр."""
+    `check_ru` — чем врачу подтвердить или исключить пункт: анализы, осмотр. `labs` — какие анализы из карточки
+    показать врачу рядом с пунктом (анализы из lab() в `when` показываются и так)."""
     id: str
     text_ru: str
     when: str | None = None
     ask: bool | str = False
     check_ru: str | None = None
+    labs: list[str] = []
     severity: Literal["contraindicated", "caution"] | None = None  # только для взаимодействий
+
+    @property
+    def lab_ids(self) -> list[str]:
+        """Анализы пункта: из lab() в when и ask, затем из labs — без повторов, в порядке появления."""
+        found = [c.args[0].value for expr in (self.when, self.ask) if isinstance(expr, str)
+                 for c in sorted(lab_calls(ast.parse(expr, mode="eval")), key=lambda c: (c.lineno, c.col_offset))]
+        return list(dict.fromkeys(found + self.labs))
 
     @model_validator(mode="after")
     def _check_expr(self) -> "DrugCheck":
@@ -167,6 +200,10 @@ class DrugCheck(BaseModel):
             if unknown:
                 raise ValueError(f"{self.id}: в {name} неизвестные имена {sorted(unknown)}, "
                                  f"доступны {sorted(DRUG_CHECK_NAMES)}")
+            for call in lab_calls(tree):
+                arg = call.args[0] if len(call.args) == 1 and not call.keywords else None
+                if not (isinstance(arg, ast.Constant) and isinstance(arg.value, str)):
+                    raise ValueError(f"{self.id}: в {name} lab() принимает один id анализа строкой: lab('egfr')")
         return self
 
 
@@ -215,6 +252,7 @@ class KnowledgeBase(BaseModel):
     scales: dict[str, Scale] = Field(default_factory=dict)
     rules: dict[str, Rule] = Field(default_factory=dict)
     drugs: dict[str, Drug] = Field(default_factory=dict)
+    labs: dict[str, LabTest] = Field(default_factory=dict)  # kb/labs.yaml, в порядке файла
     sources: dict[str, Source] = Field(default_factory=dict)
     safety: Safety
 
@@ -229,6 +267,10 @@ class KnowledgeBase(BaseModel):
             for ref in (scale.license.source, scale.validation_ru.source):
                 if ref and ref not in self.sources:
                     raise ValueError(f"scale {scale.id}: неизвестный источник {ref}")
+        for drug in self.drugs.values():
+            for item in (*drug.contraindications, *drug.caution, *drug.interactions):
+                if missing := [a for a in item.lab_ids if a not in self.labs]:
+                    raise ValueError(f"drug {drug.id}, пункт {item.id}: неизвестные анализы {missing} (kb/labs.yaml)")
         return self
 
 
@@ -247,10 +289,12 @@ def load_kb(kb_dir: Path) -> KnowledgeBase:
     raw_sources = yaml.safe_load((kb_dir / "sources.yaml").read_text(encoding="utf-8")) or {}
     sources = {sid: Source.model_validate({"id": sid, **body}) for sid, body in raw_sources.items()}
     safety = Safety.model_validate(yaml.safe_load((kb_dir / "safety.yaml").read_text(encoding="utf-8")))
+    labs = LabCatalog.model_validate(yaml.safe_load((kb_dir / "labs.yaml").read_text(encoding="utf-8")))
     return KnowledgeBase(
         scales=_read_dir(kb_dir / "scales", Scale),
         rules=_read_dir(kb_dir / "rules", Rule),
         drugs=_read_dir(kb_dir / "drugs", Drug),
+        labs={t.id: t for t in labs.labs},
         sources=sources,
         safety=safety,
     )

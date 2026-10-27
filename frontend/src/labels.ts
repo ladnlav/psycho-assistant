@@ -1,4 +1,4 @@
-import type { AlertLevel, DrugWarning, Recommendation, ReferralLevel } from './api';
+import type { AlertLevel, DiagnosisSource, DrugWarning, LabSource, LabValue, Recommendation, ReferralLevel } from './api';
 
 // Визуальное различение — обязательное условие кейса:
 // уровни алертов, «обязательно» / «желательно» и предупреждения безопасности не должны путаться.
@@ -42,6 +42,41 @@ export const DRUG_WARNING_STATUS: Record<DrugWarning['status'], string> = {
   unchecked: 'Не хватает данных',
   manual: 'Проверьте у пациента',
 };
+
+/** Откуда диагноз и результат анализа. */
+export const DIAGNOSIS_SOURCE: Record<DiagnosisSource, string> = {
+  discharge: 'выписка',
+  exam: 'осмотр',
+  patient: 'со слов пациента',
+  mis: 'МИС',
+  other: 'другое',
+};
+
+export const LAB_SOURCE: Record<LabSource, string> = {
+  lab: 'лаборатория',
+  discharge: 'выписка',
+  mis: 'МИС',
+  patient: 'со слов пациента',
+  other: 'другое',
+};
+
+/** «выписка нефролога» или «выписка»; для «другое» — только то, что написал врач. */
+export function sourceLabel(names: Record<string, string>, source: string | null, note: string | null): string {
+  if (!source) return 'источник не указан';
+  if (source === 'other') return note ?? names.other;
+  return note ? `${names[source] ?? source}: ${note}` : names[source] ?? source;
+}
+
+/** «51 мл/мин/1,73 м²» — число по-русски, с единицей из kb/labs.yaml. */
+export function labValue(value: number, unit: string | null): string {
+  return `${value.toLocaleString('ru-RU', { maximumFractionDigits: 2 })}${unit ? ` ${unit}` : ''}`;
+}
+
+/** Анализы рядом с пунктом инструкции: «СКФ 51 мл/мин/1,73 м² (17.10.2026)» или «Креатинин — нет результата». */
+export function labValueLine(l: LabValue): string {
+  if (l.value === null) return `${l.title_ru} — нет результата`;
+  return `${l.title_ru} ${labValue(l.value, l.unit)}${l.taken_on ? ` (${formatFullDate(l.taken_on)})` : ''}`;
+}
 
 /** Выраженность побочного эффекта, как её выбирает пациент. */
 export const AE_SEVERITY: Record<string, string> = {
@@ -117,6 +152,11 @@ export function evidenceRows(evidence: Record<string, string | number | boolean 
 
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+}
+
+/** Дата с годом: для анализов и диагнозов, которые бывают и годы назад. */
+export function formatFullDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 export function formatDateTime(iso: string): string {

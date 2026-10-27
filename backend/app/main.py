@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, doctor, kb, patient, ws
+from app.api import anamnesis, auth, doctor, kb, patient, ws
 from app.config import get_settings
 from app.kb import get_kb
 from app.services.alerts import rules_schedule
@@ -52,5 +52,6 @@ def health():
     return {"status": "ok"}
 
 
-for r in (auth.router, kb.router, patient.router, doctor.router, ws.router):
+for r in (auth.router, kb.router, patient.router, doctor.router, anamnesis.doctor_router, anamnesis.patient_router,
+          ws.router):
     app.include_router(r)

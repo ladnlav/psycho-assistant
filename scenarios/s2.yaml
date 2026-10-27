@@ -13,8 +13,25 @@ patient:
   sex: female
   age: 41
 
+# Анамнез — пересказ complaints_ru, черновик команды 27.10. TODO(Савва): проверить правдоподобие.
+anamnesis:
+  complaints: >-
+    Постоянное беспокойство по мелочам, внутреннее напряжение, не может расслабиться. Долго засыпает.
+  history: >-
+    Около полугода беспокоится почти каждый день, тревожные мысли мешают сосредоточиться на работе и отдыхать.
+    Засыпает больше часа. К врачам по этому поводу не обращалась, лекарства от тревоги не принимала.
+
 diagnoses:
-  - { icd10: "F41.1", title: "Генерализованное тревожное расстройство" }
+  - { icd10: "F41.1", title: "Генерализованное тревожное расстройство", source: exam,
+      source_note: "первичный приём", diagnosed_ago: start }
+
+# Перед назначением; СКФ по CKD-EPI 2021 для женщины 41 года при креатинине 68 — около 99. TODO(Савва): проверить значения.
+labs:
+  - { analyte: creatinine, value: 68, days_ago: 38, source_note: "поликлиника" }
+  - { analyte: egfr, value: 99, days_ago: 38, source_note: "поликлиника" }
+  - { analyte: alt, value: 18, days_ago: 38, source_note: "поликлиника" }
+  - { analyte: ast, value: 20, days_ago: 38, source_note: "поликлиника" }
+  - { analyte: bilirubin, value: 11, days_ago: 38, source_note: "поликлиника" }
 
 prescribe_aviandr: true
 aviandr_dose_mg: 20                # инструкция ГРЛС: по 20 мг 2 раза в сутки

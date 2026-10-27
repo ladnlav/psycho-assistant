@@ -13,8 +13,25 @@ patient:
   sex: male
   age: 37
 
+# Анамнез — пересказ complaints_ru, черновик команды 27.10. TODO(Савва): проверить правдоподобие.
+anamnesis:
+  complaints: >-
+    Тревога и раздражительность, трудно засыпать, просыпается ночью с мыслями о работе.
+  history: >-
+    Несколько месяцев работает с переработками. Тревога и раздражительность нарастают, сон стал коротким
+    и прерывистым. Раньше за помощью не обращался.
+
 diagnoses:
-  - { icd10: "F41.1", title: "Генерализованное тревожное расстройство" }
+  - { icd10: "F41.1", title: "Генерализованное тревожное расстройство", source: exam,
+      source_note: "первичный приём", diagnosed_ago: start }
+
+# Перед назначением; СКФ по CKD-EPI 2021 для мужчины 37 лет при креатинине 85 — около 104. TODO(Савва): проверить значения.
+labs:
+  - { analyte: creatinine, value: 85, days_ago: 38, source_note: "поликлиника" }
+  - { analyte: egfr, value: 104, days_ago: 38, source_note: "поликлиника" }
+  - { analyte: alt, value: 31, days_ago: 38, source_note: "поликлиника" }
+  - { analyte: ast, value: 25, days_ago: 38, source_note: "поликлиника" }
+  - { analyte: bilirubin, value: 14, days_ago: 38, source_note: "поликлиника" }
 
 prescribe_aviandr: true
 aviandr_dose_mg: 20

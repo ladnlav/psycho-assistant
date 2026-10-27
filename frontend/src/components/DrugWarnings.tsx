@@ -1,7 +1,7 @@
 import { Badge, Checkbox, Group, Paper, Stack, Text } from '@mantine/core';
 import { IconAlertTriangle } from '@tabler/icons-react';
 import type { DrugWarning } from '../api';
-import { DRUG_WARNING_KIND, DRUG_WARNING_STATUS, capitalize } from '../labels';
+import { DRUG_WARNING_KIND, DRUG_WARNING_STATUS, capitalize, labValueLine } from '../labels';
 import { Sources } from './Sources';
 
 /** Пункты инструкции, которые врач учитывает до назначения: каждый отмечает сам. */
@@ -25,6 +25,9 @@ export function DrugWarnings({ warnings, acked, onAck }: {
             </Group>
             <Text size="sm">{capitalize(w.text_ru)}</Text>
             {w.check_ru && <Text size="xs" mt={2}><b>Что проверить:</b> {w.check_ru}</Text>}
+            {w.labs.length > 0 && (
+              <Text size="xs" mt={2}><b>Анализы в карточке:</b> {w.labs.map(labValueLine).join('; ')}</Text>
+            )}
             <Text size="xs" c="dimmed" mb={4}>Инструкция, раздел «{w.section_ru}»</Text>
             <Sources ids={w.sources} />
             <Checkbox mt={6} size="xs" checked={!!acked[w.id]} onChange={(e) => onAck(w.id, e.currentTarget.checked)}

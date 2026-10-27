@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, model_validator
 
 
 class ORM(BaseModel):
@@ -133,6 +133,15 @@ class PrescriptionIn(BaseModel):
     override_note: str | None = Field(None, description="обоснование врача, если у пациента есть противопоказание")
 
 
+class LabValue(BaseModel):
+    """Последнее значение анализа из карточки рядом с пунктом инструкции; value None — результата нет."""
+    analyte: str
+    title_ru: str
+    unit: str | None = None
+    value: float | None = None
+    taken_on: date | None = None
+
+
 class DrugWarning(BaseModel):
     id: str
     kind: Literal["contraindication", "caution", "interaction"]
@@ -141,6 +150,7 @@ class DrugWarning(BaseModel):
     section_ru: str
     detail_ru: str | None = None
     check_ru: str | None = None  # чем подтвердить или исключить пункт: анализы, осмотр (kb/drugs)
+    labs: list[LabValue] = []  # анализы из карточки, которые относятся к пункту (lab() и labs в kb/drugs)
     requires_reason: bool = False
     sources: list[str] = []
 
@@ -258,11 +268,20 @@ class MessageSent(MessageOut):
     safety: SafetyScreen | None = None  # экран помощи, если в сообщении есть признаки риска (kb/rules)
 
 
+DiagnosisSource = Literal["discharge", "exam", "patient", "mis", "other"]  # models.DIAGNOSIS_SOURCES
+LabSource = Literal["lab", "discharge", "mis", "patient", "other"]  # models.LAB_SOURCES
+Note = Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]
+LongText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=8000)]
+
+
 class DiagnosisOut(BaseModel):
     id: uuid.UUID
     icd10: str
     title: str
     confirmed: bool = Field(description="подтверждён врачом")
+    source: DiagnosisSource | None = None  # откуда диагноз; None — не указано (внесён до 27.10)
+    source_note: str | None = None
+    diagnosed_on: date | None = None  # дата постановки
 
 
 class PatientSummary(BaseModel):
@@ -272,6 +291,76 @@ class PatientSummary(BaseModel):
     top_alert_level: str | None
     last_scores: dict[str, ScaleResult]
     diagnoses: list[DiagnosisOut] = []
+
+
+class DiagnosisSourceIn(BaseModel):
+    """Откуда диагноз и когда поставлен. «Другое» — источник своими словами в source_note."""
+    source: DiagnosisSource
+    source_note: Note | None = None
+    diagnosed_on: date | None = None
+
+    @model_validator(mode="after")
+    def _other_needs_note(self) -> "DiagnosisSourceIn":
+        if self.source == "other" and not self.source_note:
+            raise ValueError("Для источника «другое» опишите его в source_note")
+        return self
+
+
+class DiagnosisIn(DiagnosisSourceIn):
+    icd10: Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, min_length=1, max_length=10)]
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
+
+
+class AnamnesisIn(BaseModel):
+    complaints: LongText | None = None
+    history: LongText | None = None  # история заболевания
+    notes: LongText | None = None
+
+
+class AnamnesisOut(AnamnesisIn):
+    updated_at: datetime | None = None  # None — анамнез ещё не заполняли
+    updated_by_name: str | None = None
+
+
+class LabTestOut(BaseModel):
+    """Показатель из kb/labs.yaml."""
+    id: str
+    title_ru: str
+    name_ru: str | None = None
+    unit: str | None = None
+
+
+class LabResultIn(BaseModel):
+    analyte: str = Field(description="id из kb/labs.yaml")
+    value: float = Field(ge=0)
+    taken_on: date
+    source: LabSource
+    source_note: Note | None = None
+
+    @model_validator(mode="after")
+    def _other_needs_note(self) -> "LabResultIn":
+        if self.source == "other" and not self.source_note:
+            raise ValueError("Для источника «другое» опишите его в source_note")
+        return self
+
+
+class LabResultOut(ORM):
+    id: uuid.UUID
+    analyte: str
+    value: float
+    unit: str | None
+    taken_on: date
+    source: str
+    source_note: str | None
+    created_at: datetime
+
+
+class PatientHistory(BaseModel):
+    """Анамнез, диагнозы с источниками и анализы: раздел «Анамнез» у врача и «Моя история» у пациента."""
+    anamnesis: AnamnesisOut
+    diagnoses: list[DiagnosisOut]
+    labs: list[LabResultOut]  # все результаты, сначала последние по дате сдачи
+    lab_tests: list[LabTestOut]  # показатели из kb/labs.yaml в порядке файла
 
 
 class PatientCard(BaseModel):

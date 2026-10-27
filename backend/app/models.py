@@ -17,6 +17,8 @@ ROLES = ("doctor", "patient")
 ALERT_LEVELS = ("critical", "high", "medium")
 REFERRAL_LEVELS = ("mandatory", "desirable")
 DECISION_STATUSES = ("proposed", "accepted", "rejected", "superseded")  # superseded: services/referrals
+DIAGNOSIS_SOURCES = ("discharge", "exam", "patient", "mis", "other")  # выписка | осмотр | со слов пациента | МИС | другое
+LAB_SOURCES = ("lab", "discharge", "mis", "patient", "other")  # лаборатория | выписка | МИС | со слов пациента | другое
 
 
 def utcnow() -> datetime:
@@ -131,6 +133,38 @@ class Diagnosis(Base):
     icd10: Mapped[str] = mapped_column(String(10))
     title: Mapped[str] = mapped_column(String(255))
     confirmed_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    source: Mapped[str | None] = mapped_column(String(20))  # откуда диагноз: DIAGNOSIS_SOURCES; None — не указано
+    source_note: Mapped[str | None] = mapped_column(Text)  # какая выписка, чей осмотр; для other — сам источник
+    diagnosed_on: Mapped[date | None] = mapped_column(Date)  # дата постановки
+    created_at: Mapped[datetime] = _created()
+
+
+class Anamnesis(Base):
+    """Жалобы и история заболевания. Одна запись на пациента: кто и когда менял последним — здесь,
+    все версии — в журнале аудита (anamnesis.updated)."""
+    __tablename__ = "anamneses"
+    patient_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("patient_profiles.user_id", ondelete="CASCADE"),
+                                                  primary_key=True)
+    complaints: Mapped[str | None] = mapped_column(Text)
+    history: Mapped[str | None] = mapped_column(Text)  # история заболевания (anamnesis morbi)
+    notes: Mapped[str | None] = mapped_column(Text)
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class LabResult(Base):
+    """Результат анализа. analyte — id из kb/labs.yaml; единица — из kb на момент записи. Исправление — новый
+    результат с той же датой: последним считается результат с поздней датой сдачи, при равных — внесённый позже."""
+    __tablename__ = "lab_results"
+    id: Mapped[uuid.UUID] = _id()
+    patient_id: Mapped[uuid.UUID] = _patient_fk()
+    analyte: Mapped[str] = mapped_column(String(30))
+    value: Mapped[float] = mapped_column(Float)
+    unit: Mapped[str | None] = mapped_column(String(30))
+    taken_on: Mapped[date] = mapped_column(Date)  # дата сдачи
+    source: Mapped[str] = mapped_column(String(20))  # LAB_SOURCES
+    source_note: Mapped[str | None] = mapped_column(Text)
+    entered_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = _created()
 
 

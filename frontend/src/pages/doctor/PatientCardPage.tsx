@@ -7,12 +7,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
 import { api, type Alert, type Diagnosis, type PatientCard, type Prescription, type PrescriptionCheck,
   type Recommendation, type Referral, type ReferralIn, type ReferralLevel, type ReferralSpecialty } from '../../api';
+import { AnamnesisCard, diagnosisSourceLine } from '../../components/Anamnesis';
 import { AlertLevelBadge, ReferralBadge } from '../../components/Badges';
 import { Chat } from '../../components/Chat';
 import { DrugWarnings } from '../../components/DrugWarnings';
+import { LabsCard } from '../../components/Labs';
 import { Sources } from '../../components/Sources';
-import { ALERT_LEVEL, RECOMMENDATION_STATUS, REFERRAL_LEVEL, SPECIALTY, capitalize, evidenceRows, formatDate,
-  formatDateTime, plural, triggerLabel } from '../../labels';
+import { ALERT_LEVEL, DIAGNOSIS_SOURCE, RECOMMENDATION_STATUS, REFERRAL_LEVEL, SPECIALTY, capitalize, evidenceRows,
+  formatDate, formatDateTime, plural, triggerLabel } from '../../labels';
 
 /** «доставлено за 15 мс» / «за 2,3 с»; если врач был не в сети — когда алерт пришёл при подключении. */
 function deliveryText(a: Alert): string {
@@ -23,15 +25,16 @@ function deliveryText(a: Alert): string {
   return ` · доставлено при подключении врача ${formatDateTime(a.delivered_at)}`;
 }
 
-/** Диагнозы — справочная строка под ФИО: нейтральный серый, чтобы не спорить с алертами и направлениями. */
+/** Диагнозы — справочная строка под ФИО: нейтральный серый, чтобы не спорить с алертами и направлениями.
+ *  Откуда диагноз — на значке, подробнее и дата постановки — в подсказке и в разделе «Анамнез». */
 function Diagnoses({ items }: { items: Diagnosis[] }) {
   if (!items.length) return <Text size="sm" c="dimmed">Диагнозы не внесены</Text>;
   return (
     <Group gap="xs">
       {items.map((d) => (
-        <Tooltip key={d.id} label={d.confirmed ? 'Подтверждён врачом' : 'Не подтверждён врачом'}>
+        <Tooltip key={d.id} label={`${capitalize(diagnosisSourceLine(d))} · ${d.confirmed ? 'подтверждён врачом' : 'не подтверждён врачом'}`}>
           <Badge size="lg" tt="none" color="gray" variant={d.confirmed ? 'light' : 'outline'}>
-            <b>{d.icd10}</b> {d.title}{d.confirmed ? '' : ' · не подтверждён'}
+            <b>{d.icd10}</b> {d.title}{d.source ? ` · ${DIAGNOSIS_SOURCE[d.source]}` : ''}{d.confirmed ? '' : ' · не подтверждён'}
           </Badge>
         </Tooltip>
       ))}
@@ -376,6 +379,8 @@ export function PatientCardPage() {
               series={[{ name: 'Тревога', color: 'red.6' }, { name: 'Настроение', color: 'teal.6' }]} />
           ) : <Text c="dimmed" size="sm">Нет данных</Text>}
         </Card>
+        <AnamnesisCard patientId={card.id} />
+        <LabsCard patientId={card.id} />
         <Card withBorder radius="md">
           <Title order={4} mb="sm">Терапия и приверженность</Title>
           <Stack gap="xs">

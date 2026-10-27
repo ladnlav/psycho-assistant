@@ -5,12 +5,14 @@
 
 Нужен демо-врач из app.seed; пароль пациентов сценариев — SEED_PASSWORD. Даты считаются от сегодняшнего дня:
 последняя неделя сценария заканчивается вчера, а сегодняшний день пустой — его показывают на демо.
+Анамнез записан от имени демо-врача в первый день истории; анализы сданы за labs[].days_ago дней до сегодня.
 С last_report_days_ago > 1 история кончается раньше: пациент перестал вести записи (правила «нет записей 3 и 5 дней»).
 Формат файла — scenarios/README.md.
 """
 
 import argparse
 import os
+import re
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Literal
@@ -23,8 +25,10 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import SessionLocal
 from app.kb import KnowledgeBase, Scale, get_kb
-from app.models import (AdverseEvent, Alert, Consent, Diagnosis, DiaryEntry, DoctorPatientLink, MedicationIntake,
-                        Message, PatientProfile, Prescription, Recommendation, Referral, ScaleResponse, User, utcnow)
+from app.models import (AdverseEvent, Alert, Anamnesis, Consent, Diagnosis, DiaryEntry, DoctorPatientLink, LabResult,
+                        MedicationIntake, Message, PatientProfile, Prescription, Recommendation, Referral, ScaleResponse,
+                        User, utcnow)
+from app.schemas import DiagnosisSource, LabSource
 from app.security import hash_password
 from app.services.alerts import apply_rules, timed_rules
 from app.services.audit import audit
@@ -43,6 +47,24 @@ class ScenarioPatient(BaseModel):
 class ScenarioDiagnosis(BaseModel):
     icd10: str
     title: str
+    source: DiagnosisSource | None = None
+    source_note: str | None = None
+    # Когда поставлен: start — первый день истории (визит), иначе «8y», «6m», «14d» назад от сегодня.
+    diagnosed_ago: str | None = Field(None, pattern=r"^(start|\d+[dmy])$")
+
+
+class ScenarioAnamnesis(BaseModel):
+    complaints: str | None = None
+    history: str | None = None
+    notes: str | None = None
+
+
+class ScenarioLab(BaseModel):
+    analyte: str  # id из kb/labs.yaml
+    value: float = Field(ge=0)
+    days_ago: int = Field(ge=0)  # когда сдан, дней до сегодня
+    source: LabSource = "lab"
+    source_note: str | None = None
 
 
 class ScenarioAdverseEvent(BaseModel):
@@ -81,9 +103,11 @@ class Scenario(BaseModel):
     status: Literal["draft", "validated"]
     author_ru: str
     show_ru: str | None = None
-    complaints_ru: str | None = None  # для описания сценария; в базу не пишется
+    complaints_ru: str | None = None  # для описания сценария; в базу не пишется, в карточку идёт anamnesis
     patient: ScenarioPatient
+    anamnesis: ScenarioAnamnesis | None = None
     diagnoses: list[ScenarioDiagnosis] = []
+    labs: list[ScenarioLab] = []
     past_medications: list[str] = []
     prescribe_aviandr: bool = False
     aviandr_dose_mg: float | None = None
@@ -129,16 +153,30 @@ def _at(day: date, hour: int) -> datetime:
     return datetime.combine(day, time(hour), tzinfo=timezone.utc)
 
 
+_AGO_DAYS = {"d": 1, "m": 30, "y": 365}
+
+
+def _diagnosed_on(ago: str | None, start: date, today: date) -> date | None:
+    if ago is None:
+        return None
+    if ago == "start":
+        return start
+    n, unit = re.fullmatch(r"(\d+)([dmy])", ago).groups()
+    return today - timedelta(days=int(n) * _AGO_DAYS[unit])
+
+
 def _purge(db: Session, patient_id) -> None:
     """Стирает данные пациента сценария; учётная запись, профиль и привязка к врачу остаются."""
     for model in (Referral, Recommendation, Alert, Message, AdverseEvent, MedicationIntake, Prescription,
-                  DiaryEntry, ScaleResponse, Diagnosis):
+                  DiaryEntry, ScaleResponse, Diagnosis, LabResult, Anamnesis):
         db.execute(delete(model).where(model.patient_id == patient_id))
 
 
 def load_scenario(db: Session, kb: KnowledgeBase, sc: Scenario, doctor: User, password: str, today: date,
                   reset: bool = False) -> User | None:
     """Создаёт пациента сценария. Уже загруженный сценарий пропускается (None), если не reset."""
+    if unknown := sorted({lab.analyte for lab in sc.labs} - kb.labs.keys()):
+        raise ValueError(f"{sc.id}: анализов {unknown} нет в kb/labs.yaml")
     user = db.scalar(select(User).where(User.email == sc.patient.email))
     if user is not None and not reset:
         return None
@@ -162,8 +200,17 @@ def load_scenario(db: Session, kb: KnowledgeBase, sc: Scenario, doctor: User, pa
     weeks = (sc.weeks[-1].week + 1) if sc.weeks else 0
     end = today - timedelta(days=sc.last_report_days_ago - 1)  # первый день без записей
     start = end - timedelta(days=7 * weeks)
+    if sc.anamnesis:
+        db.add(Anamnesis(patient_id=user.id, complaints=sc.anamnesis.complaints, history=sc.anamnesis.history,
+                         notes=sc.anamnesis.notes, updated_by=doctor.id, updated_at=_at(start, 11)))
     for d in sc.diagnoses:
-        db.add(Diagnosis(patient_id=user.id, icd10=d.icd10, title=d.title, confirmed_by=doctor.id))
+        db.add(Diagnosis(patient_id=user.id, icd10=d.icd10, title=d.title, confirmed_by=doctor.id, source=d.source,
+                         source_note=d.source_note, diagnosed_on=_diagnosed_on(d.diagnosed_ago, start, today)))
+    for lab in sc.labs:
+        taken = today - timedelta(days=lab.days_ago)
+        db.add(LabResult(patient_id=user.id, analyte=lab.analyte, value=lab.value, unit=kb.labs[lab.analyte].unit,
+                         taken_on=taken, source=lab.source, source_note=lab.source_note, entered_by=doctor.id,
+                         created_at=_at(taken, 15)))
     for name in sc.past_medications:  # до назначения Авиандра, уже отменены
         db.add(Prescription(patient_id=user.id, doctor_id=doctor.id, drug_name=name, active=False,
                             start_date=start - timedelta(days=90), end_date=start - timedelta(days=1)))

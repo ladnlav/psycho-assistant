@@ -8,14 +8,15 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.kb import KnowledgeBase, get_kb
-from app.models import (AdverseEvent, Alert, AuditLog, Diagnosis, DiaryEntry, DoctorPatientLink, Invite, MedicationIntake,
+from app.models import (AdverseEvent, Alert, AuditLog, DiaryEntry, DoctorPatientLink, Invite, MedicationIntake,
                         Message, PatientProfile, Prescription, Recommendation, Referral, ScaleResponse, User, utcnow)
-from app.schemas import (AdverseEventOut, AlertOut, Decision, DiagnosisOut, DiaryOut, IntakeOut, InviteCreate,
+from app.schemas import (AdverseEventOut, AlertOut, Decision, DiaryOut, IntakeOut, InviteCreate,
                          InviteOut, MessageIn, MessageOut, PatientCard, PatientSummary, PrescriptionCheck,
                          PrescriptionIn, PrescriptionOut, PrescriptionStop, RecommendationOut, ReferralIn,
                          ReferralOut, ScaleResult, ScaleSubmit, ScaleSubmitResult)
 from app.security import ensure_own_patient, require_doctor
 from app.services.alerts import hub
+from app.services.anamnesis import diagnoses
 from app.services.audit import audit
 from app.services.clinical import record_scale
 from app.services.context import pdc_7d
@@ -43,12 +44,6 @@ def list_invites(doctor: User = Depends(require_doctor), db: Session = Depends(g
     return db.scalars(select(Invite).where(Invite.doctor_id == doctor.id).order_by(Invite.created_at.desc())).all()
 
 
-def _diagnoses(db: Session, patient_id: uuid.UUID) -> list[DiagnosisOut]:
-    return [DiagnosisOut(id=d.id, icd10=d.icd10, title=d.title, confirmed=d.confirmed_by is not None)
-            for d in db.scalars(select(Diagnosis).where(Diagnosis.patient_id == patient_id)
-                                .order_by(Diagnosis.created_at, Diagnosis.icd10))]
-
-
 @router.get("/patients", response_model=list[PatientSummary])
 def list_patients(doctor: User = Depends(require_doctor), db: Session = Depends(get_db)):
     """Список пациентов врача, отсортированный по риску (сначала открытые критические алерты).
@@ -68,7 +63,7 @@ def list_patients(doctor: User = Depends(require_doctor), db: Session = Depends(
             last[row.scale_id] = ScaleResult.model_validate(row)
         top = max(open_alerts, key=lambda lvl: LEVEL_RANK.get(lvl, 0), default=None)
         out.append(PatientSummary(id=p.id, full_name=p.full_name, open_alerts=len(open_alerts),
-                                  top_alert_level=top, last_scores=last, diagnoses=_diagnoses(db, p.id)))
+                                  top_alert_level=top, last_scores=last, diagnoses=diagnoses(db, p.id)))
     out.sort(key=lambda s: (-LEVEL_RANK.get(s.top_alert_level or "", 0), -s.open_alerts, s.full_name))
     return out
 
@@ -93,7 +88,7 @@ def patient_card(patient_id: uuid.UUID, doctor: User = Depends(require_doctor), 
         id=patient_id,
         full_name=user.full_name,
         birth_date=profile.birth_date if profile else None,
-        diagnoses=_diagnoses(db, patient_id),
+        diagnoses=diagnoses(db, patient_id),
         scales=scales,
         diary=[DiaryOut.model_validate(d) for d in db.scalars(
             select(DiaryEntry).where(DiaryEntry.patient_id == patient_id).order_by(DiaryEntry.day))],
