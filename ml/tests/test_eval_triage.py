@@ -44,3 +44,10 @@ def test_triage_phrases_from_end_to_end_run():
     for text in ("Смерть умираю", "Иногда хочу умереть", "лучше бы не просыпаться"):
         assert triage_keywords(text).categories == ["suicidal_ideation"], text
     assert "self_harm" in triage_keywords("Вчера опять наносила себе порезы").categories
+
+
+def test_triage_suicidal_phrasings():
+    """Проверка стенда перед предзащитой: «думаю, что лучше умереть» словарь пропускал."""
+    for text in ("Опять думаю, что лучше умереть", "Мысли о смерти не отпускают", "Хочу уйти из жизни",
+                 "Не хочется жить", "Устала жить", "Всем будет лучше без меня", "Думаю о самоубийстве"):
+        assert triage_keywords(text).level == "critical", text
