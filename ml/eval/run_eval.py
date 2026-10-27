@@ -1,9 +1,11 @@
 """Прогон извлечения на размеченном наборе и отчёт по полям.
 
-    cd ml && python -m eval.run_eval              # все документы из eval/data
+    cd ml && python -m eval.run_eval              # все истории eval/data/hist_*.txt
     python -m eval.run_eval --limit 3             # быстрый прогон
+    python -m eval.run_eval --rescore eval/runs/<время>   # пересчитать метрики по ответам прошлого прогона, без модели
 
 Каждой истории eval/data/<id>.txt соответствует эталон eval/gold/<id>.json (схема app.schemas.ExtractionResult).
+example_001 — пример формата из каркаса, Савва его не проверял, поэтому в метрику он не входит.
 Предсказания и отчёт сохраняются в eval/runs/<время>/.
 """
 
@@ -24,26 +26,36 @@ ROOT = Path(__file__).parent
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--rescore", type=Path, default=None,
+                    help="папка прошлого прогона eval/runs/<время>: пересчитать метрики по его ответам без модели")
     args = ap.parse_args()
 
-    docs = sorted((ROOT / "data").glob("*.txt"))[: args.limit]
-    run_dir = ROOT / "runs" / datetime.now().strftime("%Y%m%d-%H%M%S")
+    docs = sorted((ROOT / "data").glob("hist_*.txt"))[: args.limit]
+    run_dir = ROOT / "runs" / (datetime.now().strftime("%Y%m%d-%H%M%S") + ("-rescore" if args.rescore else ""))
     run_dir.mkdir(parents=True)
-    per_doc, latencies = [], []
+    old = json.loads((args.rescore / "report.json").read_text(encoding="utf-8")) if args.rescore else {}
+    per_doc, latencies = [], {}
     for doc in docs:
         gold = ExtractionResult.model_validate_json((ROOT / "gold" / f"{doc.stem}.json").read_text(encoding="utf-8"))
-        start = time.perf_counter()
-        pred = extract(doc.read_text(encoding="utf-8"))
-        latencies.append(time.perf_counter() - start)
-        (run_dir / f"{doc.stem}.json").write_text(pred.model_dump_json(indent=2), encoding="utf-8")
+        if args.rescore:
+            pred = ExtractionResult.model_validate_json((args.rescore / f"{doc.stem}.json").read_text(encoding="utf-8"))
+            if doc.stem in old.get("latency_s", {}):
+                latencies[doc.stem] = old["latency_s"][doc.stem]
+        else:
+            start = time.perf_counter()
+            pred = extract(doc.read_text(encoding="utf-8"))
+            latencies[doc.stem] = time.perf_counter() - start
+            (run_dir / f"{doc.stem}.json").write_text(pred.model_dump_json(indent=2), encoding="utf-8")
+            print(f"{doc.stem}: {latencies[doc.stem]:.1f} c")
         per_doc.append(compare(gold, pred))
-        print(f"{doc.stem}: {latencies[-1]:.1f} c")
 
     total = aggregate(per_doc)
     report = {
-        "model": get_settings().llm_model,
+        "model": old.get("model") if args.rescore else get_settings().llm_model,
+        "rescored_from": str(args.rescore) if args.rescore else None,
         "documents": len(docs),
-        "avg_latency_s": sum(latencies) / len(latencies) if latencies else None,
+        "avg_latency_s": sum(latencies.values()) / len(latencies) if latencies else None,
+        "latency_s": {k: round(v, 2) for k, v in latencies.items()},
         "fields": {f: {"precision": round(s.precision, 3), "recall": round(s.recall, 3), "f1": round(s.f1, 3),
                        "tp": s.tp, "fp": s.fp, "fn": s.fn} for f, s in total.items()},
     }
