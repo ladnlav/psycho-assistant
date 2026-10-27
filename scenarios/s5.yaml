@@ -13,7 +13,7 @@ patient:
   sex: female
   age: 29
 
-# Анамнез — пересказ complaints_ru, черновик команды 27.10. TODO(Савва): проверить правдоподобие.
+# Анамнез — пересказ complaints_ru, команда, 27.10.
 anamnesis:
   complaints: >-
     Тревога и напряжение, трудно засыпать.
@@ -25,7 +25,7 @@ diagnoses:
   - { icd10: "F41.1", title: "Генерализованное тревожное расстройство", source: exam,
       source_note: "первичный приём", diagnosed_ago: start }
 
-# Перед назначением; СКФ по CKD-EPI 2021 для женщины 29 лет при креатинине 64 — около 115. TODO(Савва): проверить значения.
+# Перед назначением; СКФ по CKD-EPI 2021 для женщины 29 лет при креатинине 64 — около 115.
 labs:
   - { analyte: creatinine, value: 64, days_ago: 28, source_note: "поликлиника" }
   - { analyte: egfr, value: 115, days_ago: 28, source_note: "поликлиника" }
