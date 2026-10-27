@@ -60,6 +60,7 @@ class Week(BaseModel):
     gad7: int | None = Field(None, ge=0, le=21)
     phq9: int | None = Field(None, ge=0, le=27)
     phq9_item9: int | None = Field(None, ge=0, le=3)
+    phq4: int | None = Field(None, ge=0, le=12)
     intake_days: int | None = Field(None, ge=0, le=7)
     adverse_events: list[ScenarioAdverseEvent] = []
     messages: list[str] = []
@@ -185,7 +186,8 @@ def load_scenario(db: Session, kb: KnowledgeBase, sc: Scenario, doctor: User, pa
                 db.add(MedicationIntake(patient_id=user.id, prescription_id=rx.id, day=day,
                                         status="taken" if d < w.intake_days else "missed", created_at=_at(day, 9)))
         for scale_id, total, fixed in (("gad7", w.gad7, None),
-                                       ("phq9", w.phq9, None if w.phq9_item9 is None else {"item9": w.phq9_item9})):
+                                       ("phq9", w.phq9, None if w.phq9_item9 is None else {"item9": w.phq9_item9}),
+                                       ("phq4", w.phq4, None)):
             if total is None:
                 continue
             scale = kb.scales[scale_id]

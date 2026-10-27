@@ -18,11 +18,13 @@ diagnoses:
 
 prescribe_aviandr: true
 aviandr_dose_mg: 20                # инструкция ГРЛС: по 20 мг 2 раза в сутки
+# PHQ-4 — раз в неделю (решение 27.10); значения добавлены 27.10 для демо: тревога снижается вместе с GAD-7.
 weeks:
   - week: 0
     anxiety: 8
     mood: 4
     sleep: 4
+    phq4: 7
     gad7: 16
     phq9: 9
     phq9_item9: 0
@@ -32,6 +34,7 @@ weeks:
     anxiety: 7
     mood: 5
     sleep: 4
+    phq4: 6
     intake_days: 7
     adverse_events: [{ description: "Сонливость днём в первые дни приёма", severity: mild }]
     expected_ru: "Сонливость — частая реакция по инструкции; лёгкая, не серьёзная — алерта нет"
@@ -39,6 +42,7 @@ weeks:
     anxiety: 6
     mood: 5
     sleep: 5
+    phq4: 5
     gad7: 12
     phq9: 7
     phq9_item9: 0
@@ -48,11 +52,13 @@ weeks:
     anxiety: 5
     mood: 6
     sleep: 6
+    phq4: 4
     intake_days: 6
   - week: 4
     anxiety: 4
     mood: 6
     sleep: 6
+    phq4: 3
     gad7: 9
     phq9: 5
     phq9_item9: 0

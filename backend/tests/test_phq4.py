@@ -3,11 +3,13 @@
 from datetime import timedelta
 
 import pytest
+from sqlalchemy import select
 
 from app.config import get_settings
 from app.db import SessionLocal
 from app.kb import get_kb, load_kb
-from app.models import utcnow
+from app.models import ScaleResponse, User, utcnow
+from app.scenarios import load_scenario, read_scenarios
 from app.services.context import build_context
 from app.services.scoring import score
 from tests.conftest import auth
@@ -51,3 +53,16 @@ def test_patient_gets_phq4_weekly_and_rules_see_subscales(client, doctor_token, 
     with SessionLocal() as db:
         ctx = build_context(db, get_kb(), patient_id(client, doctor_token))
     assert (ctx["phq4"]["anxiety"], ctx["phq4"]["depression"]) == (3, 1)
+
+
+def test_scenario_s2_has_weekly_phq4(client, doctor_token):
+    sc = read_scenarios(get_settings().scenarios_dir)["s2"]
+    with SessionLocal() as db:
+        doctor = db.scalar(select(User).where(User.email == "doc@example.com"))
+        patient = load_scenario(db, get_kb(), sc, doctor, "test-password", utcnow().date())
+        db.commit()
+        rows = db.scalars(select(ScaleResponse).where(ScaleResponse.patient_id == patient.id,
+                                                      ScaleResponse.scale_id == "phq4")
+                          .order_by(ScaleResponse.created_at)).all()
+    assert [r.total for r in rows] == [7, 6, 5, 4, 3], "раз в неделю, тревога снижается"
+    assert rows[0].answers["item1"] + rows[0].answers["item2"] == 4, "остаток суммы — сначала пунктам тревоги"
