@@ -3,6 +3,7 @@ import { Alert as MAlert, Anchor, Badge, Button, Card, Divider, Group, Input, Mo
   SegmentedControl, Select, SimpleGrid, Stack, Table, Text, Textarea, TextInput, Title, Tooltip } from '@mantine/core';
 import { LineChart } from '@mantine/charts';
 import { notifications } from '@mantine/notifications';
+import { IconCircleCheck } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
 import { api, type Alert, type Diagnosis, type PatientCard, type Prescription, type PrescriptionCheck,
@@ -14,7 +15,7 @@ import { DrugWarnings } from '../../components/DrugWarnings';
 import { LabsCard } from '../../components/Labs';
 import { Sources } from '../../components/Sources';
 import { ALERT_LEVEL, DIAGNOSIS_SOURCE, RECOMMENDATION_STATUS, REFERRAL_LEVEL, SPECIALTY, capitalize, evidenceRows,
-  formatDate, formatDateTime, plural, triggerLabel } from '../../labels';
+  formatDate, formatDateTime, formatFullDate, plural, triggerLabel } from '../../labels';
 
 /** «доставлено за 15 мс» / «за 2,3 с»; если врач был не в сети — когда алерт пришёл при подключении. */
 function deliveryText(a: Alert): string {
@@ -169,36 +170,51 @@ function RecommendationItem({ rec, patientId }: { rec: Recommendation; patientId
 
 const AVIANDR = { drug_id: 'aviandr', drug_name: 'Авиандр' };
 
-function PrescribeForm({ patientId }: { patientId: string }) {
-  const qc = useQueryClient();
-  const [dose, setDose] = useState<number | string>('');
-  const [frequency, setFrequency] = useState('');
-  const [acked, setAcked] = useState<Record<string, boolean>>({});
-  const [note, setNote] = useState('');
-  // Пункты инструкции показываем сразу, ещё до нажатия «Назначить».
+/** Назначение Авиандра: пункты инструкции показываем сразу, ещё до нажатия «Назначить».
+ *  Если препарат уже назначен — плашка вместо формы: повторное назначение сервер всё равно отклонит. */
+function Prescribe({ patientId }: { patientId: string }) {
   const { data: check } = useQuery({ queryKey: ['rx-check', patientId, AVIANDR.drug_id],
     queryFn: () => api<PrescriptionCheck>(`/doctor/patients/${patientId}/prescriptions/check`, { body: AVIANDR }) });
-  const warnings = check?.warnings ?? [];
-  // Доза и кратность по умолчанию — из инструкции (kb/drugs, dosing), один раз; дальше их меняет врач.
-  const dosing = check?.dosing;
-  const [prefilled, setPrefilled] = useState(false);
-  if (dosing && !prefilled) {
-    setPrefilled(true);
-    setDose(dosing.single_mg);
-    setFrequency(dosing.frequency_ru);
+  if (!check) return null;
+  const rx = check.already_prescribed;
+  if (rx) {
+    return (
+      <MAlert color="teal" variant="light" icon={<IconCircleCheck />} title={`${rx.drug_name} уже назначен`}>
+        <Text size="sm">
+          С {formatFullDate(rx.start_date)}{rx.dose_mg ? `, ${rx.dose_mg} мг` : ''}{rx.frequency ? `, ${rx.frequency}` : ''}.
+          Повторно назначить нельзя: чтобы изменить дозу или режим, отмените текущее назначение.
+        </Text>
+      </MAlert>
+    );
   }
+  // После отмены назначения форма появляется заново, и пункты инструкции врач отмечает снова.
+  return <PrescribeForm patientId={patientId} check={check} />;
+}
+
+function PrescribeForm({ patientId, check }: { patientId: string; check: PrescriptionCheck }) {
+  const qc = useQueryClient();
+  // Доза и кратность по умолчанию — из инструкции (kb/drugs, dosing); дальше их меняет врач.
+  const dosing = check.dosing;
+  const [dose, setDose] = useState<number | string>(dosing?.single_mg ?? '');
+  const [frequency, setFrequency] = useState(dosing?.frequency_ru ?? '');
+  const [acked, setAcked] = useState<Record<string, boolean>>({});
+  const [note, setNote] = useState('');
+  const warnings = check.warnings;
   const needReason = warnings.some((w) => w.requires_reason);
-  const ready = !!check && warnings.every((w) => acked[w.id]) && (!needReason || note.trim() !== '');
+  const ready = warnings.every((w) => acked[w.id]) && (!needReason || note.trim() !== '');
   const create = useMutation({
     mutationFn: () => api(`/doctor/patients/${patientId}/prescriptions`, { body: {
       ...AVIANDR, dose_mg: dose === '' ? null : Number(dose), frequency: frequency || null,
       acknowledged_warnings: warnings.filter((w) => acked[w.id]).map((w) => w.id), override_note: note.trim() || null } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['card', patientId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['card', patientId] });
+      qc.invalidateQueries({ queryKey: ['rx-check', patientId] }); // проверка вернёт «уже назначен» — форма сменится плашкой
+    },
     onError: () => qc.invalidateQueries({ queryKey: ['rx-check', patientId] }), // данные пациента могли измениться
   });
   return (
     <Stack gap="xs">
-      {check?.notice_ru && <MAlert color="gray" variant="light">{check.notice_ru}</MAlert>}
+      {check.notice_ru && <MAlert color="gray" variant="light">{check.notice_ru}</MAlert>}
       {warnings.length > 0 && (
         <>
           <Text size="sm" fw={500}>Перед назначением отметьте каждый пункт инструкции</Text>
@@ -212,7 +228,9 @@ function PrescribeForm({ patientId }: { patientId: string }) {
       <Group align="flex-end">
         <NumberInput label="Доза, мг" value={dose} onChange={setDose} w={110} />
         <TextInput label="Режим" placeholder="по инструкции" value={frequency} onChange={(e) => setFrequency(e.currentTarget.value)} />
-        <Button disabled={!ready} loading={create.isPending} onClick={() => create.mutate()}>Назначить Авиандр</Button>
+        <Button disabled={!ready || create.isSuccess} loading={create.isPending} onClick={() => create.mutate()}>
+          Назначить Авиандр
+        </Button>
       </Group>
       {dosing?.schedule_ru && <Text size="xs" c="dimmed">По инструкции (ГРЛС): {dosing.schedule_ru}</Text>}
       {create.isError && <MAlert color="red" variant="light">{(create.error as Error).message}</MAlert>}
@@ -235,6 +253,7 @@ function StopPrescription({ rx, patientId }: { rx: Prescription; patientId: stri
       setOpened(false);
       setReason('');
       qc.invalidateQueries({ queryKey: ['card', patientId] });
+      qc.invalidateQueries({ queryKey: ['rx-check', patientId] }); // препарат снова можно назначить
     },
   });
   const close = () => {
@@ -393,7 +412,7 @@ export function PatientCardPage() {
             <Text size="sm">
               Приверженность за 7 дней: {card.pdc_7d === null ? 'недостаточно данных' : `${Math.round(card.pdc_7d * 100)}%`}
             </Text>
-            {active.length === 0 && <PrescribeForm patientId={card.id} />}
+            <Prescribe patientId={card.id} />
             {past.length > 0 && (
               <Text size="xs" c="dimmed">
                 Ранее: {past.map((p) => `${rxLabel(p)} (${formatDate(p.start_date)}–${p.end_date ? formatDate(p.end_date) : '?'})`)

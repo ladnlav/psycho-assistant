@@ -132,10 +132,16 @@ def check_prescription_endpoint(patient_id: uuid.UUID, body: PrescriptionIn, doc
 def prescribe(patient_id: uuid.UUID, body: PrescriptionIn, doctor: User = Depends(require_doctor),
               db: Session = Depends(get_db), kb: KnowledgeBase = Depends(get_kb)):
     """Назначение делает только врач. Пункты инструкции он должен учесть, а при противопоказании,
-    найденном в карточке, — написать обоснование; всё это пишется в аудит."""
+    найденном в карточке, — написать обоснование; всё это пишется в аудит. Второе активное назначение
+    того же препарата отклоняется: сначала врач отменяет первое."""
     ensure_own_patient(db, doctor, patient_id)
     _ensure_registered(kb, body)
+    # Назначения одного пациента — по очереди: второй одновременный запрос дождётся первого и увидит его
+    # (Postgres; SQLite в тестах блокировку пропускает).
+    db.execute(select(User.id).where(User.id == patient_id).with_for_update())
     result = check_prescription(db, kb, patient_id, body)
+    if result.already_prescribed:
+        raise HTTPException(409, result.notice_ru)
     if any(w.id not in body.acknowledged_warnings for w in result.warnings):
         raise HTTPException(409, "Есть пункты инструкции, которые нужно учесть до назначения — обновите проверку")
     if any(w.requires_reason for w in result.warnings) and not (body.override_note or "").strip():

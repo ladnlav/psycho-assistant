@@ -207,6 +207,19 @@ class DrugCheck(BaseModel):
         return self
 
 
+class Indication(BaseModel):
+    """Показание из инструкции. Список кодов МКБ-10 — показание подтверждено, только если в карточке есть все."""
+    icd10: str | list[str] = Field(min_length=1)
+    text: str
+
+    @property
+    def codes(self) -> list[str]:
+        return [self.icd10] if isinstance(self.icd10, str) else self.icd10
+
+
+OFF_LABEL_ID = "off-label"  # пункт «вне показаний» в проверке назначения (services/drug_checks)
+
+
 class Drug(BaseModel):
     id: str
     trade_name: str
@@ -215,7 +228,7 @@ class Drug(BaseModel):
     status: Status
     atc: str | None = None
     dosage_forms: list[str] = []
-    indications: list[dict[str, Any]] = []
+    indications: list[Indication] = []
     contraindications: list[DrugCheck] = []
     caution: list[DrugCheck] = []
     dosing: dict[str, Any] = {}
@@ -232,6 +245,8 @@ class Drug(BaseModel):
         ids = [c.id for c in (*self.contraindications, *self.caution, *self.interactions)]
         if dup := {i for i in ids if ids.count(i) > 1}:
             raise ValueError(f"{self.id}: повторяются id пунктов инструкции {sorted(dup)}")
+        if OFF_LABEL_ID in ids:
+            raise ValueError(f"{self.id}: id «{OFF_LABEL_ID}» занят пунктом «вне показаний»")
         if missing := [c.id for c in self.interactions if c.severity is None]:
             raise ValueError(f"{self.id}: у взаимодействий {missing} не указан severity (contraindicated | caution)")
         return self

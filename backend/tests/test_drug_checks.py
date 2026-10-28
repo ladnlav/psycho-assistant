@@ -7,9 +7,9 @@ from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.db import SessionLocal
-from app.kb import Drug, DrugCheck, get_kb
+from app.kb import OFF_LABEL_ID, Drug, DrugCheck, Indication, get_kb
 from app.main import app
-from app.models import AuditLog, Diagnosis
+from app.models import AuditLog, Diagnosis, Prescription
 from app.services.drug_checks import PatientFacts, check, dosing
 from tests.conftest import auth
 
@@ -27,6 +27,11 @@ TEST_DRUG = Drug(
     sources=["grls_aviandr", "sponsor_deck_aviandr"],
 )
 RX = {"drug_id": "testdrug", "drug_name": "Тестоцин"}
+# Показания вымышленные: одно из одного кода, другое — из двух кодов, которые должны быть в карточке вместе.
+INDICATED_DRUG = TEST_DRUG.model_copy(update={"indications": [
+    Indication(icd10="F41.1", text="Тревожное расстройство"),
+    Indication(icd10=["F43.2", "U09.9"], text="Расстройство адаптации после перенесённой инфекции"),
+]})
 
 
 def statuses(facts: PatientFacts) -> dict[str, str]:
@@ -73,6 +78,43 @@ def test_kb_rejects_bad_checks():
     with pytest.raises(ValidationError, match="severity"):
         Drug(id="x", trade_name="X", inn="x", registered_rf=True, status="draft",
              interactions=[DrugCheck(id="i", text_ru="…", when="taking('y')")])
+    with pytest.raises(ValidationError, match="at least 1"):
+        Indication(icd10=[], text="Показание без кодов подтверждалось бы всегда")
+    with pytest.raises(ValidationError, match="вне показаний"):
+        Drug(id="x", trade_name="X", inn="x", registered_rf=True, status="draft",
+             caution=[DrugCheck(id=OFF_LABEL_ID, text_ru="…")])
+
+
+# --- показания ----------------------------------------------------------------------------------
+
+def off_label(diagnoses: list[str], drug: Drug = INDICATED_DRUG):
+    return next((w for w in check(drug, PatientFacts(age=30, diagnoses=diagnoses)) if w.id == OFF_LABEL_ID), None)
+
+
+def test_off_label_when_no_indication_in_card():
+    w = off_label(["F32.1", "I10"])
+    assert (w.kind, w.status, w.requires_reason) == ("off_label", "fired", False), "уровень «с осторожностью»"
+    assert w.text_ru == "Назначение вне зарегистрированных показаний"
+    assert w.detail_ru == "в карточке F32.1, I10"
+    assert [(i.text_ru, i.icd10) for i in w.indications] == [
+        ("Тревожное расстройство", ["F41.1"]),
+        ("Расстройство адаптации после перенесённой инфекции", ["F43.2", "U09.9"])], "показания — из kb, как есть"
+    assert w.sources == INDICATED_DRUG.sources
+
+    empty = off_label([])
+    assert (empty.status, empty.detail_ru) == ("unchecked", "диагнозы не внесены")
+
+
+def test_indication_in_card_means_no_off_label():
+    assert off_label(["f41.1"]) is None, "сравнение по префиксу и без учёта регистра, как dx()"
+    assert off_label(["I10", "F41.1"]) is None
+    assert off_label(["F32.1"], drug=TEST_DRUG) is None, "показаний в kb нет — проверки нет"
+
+
+def test_two_code_indication_needs_both_codes():
+    assert off_label(["F43.2"]) is not None
+    assert off_label(["U09.9"]) is not None
+    assert off_label(["U09.9", "F43.22"]) is None
 
 
 @pytest.fixture()
@@ -108,6 +150,60 @@ def test_prescription_needs_acknowledgement_and_reason(client, doctor_token, pat
         entry = db.scalar(select(AuditLog).where(AuditLog.action == "prescription.created"))
     assert entry.data["override_note"].startswith("Беременность исключена")
     assert {"id": "pregnancy", "kind": "contraindication", "status": "fired"} in entry.data["warnings"]
+
+
+def test_off_label_is_acknowledged_without_reason(client, doctor_token, patient_token, kb_with_testdrug):
+    kb_with_testdrug.drugs["testdrug"] = INDICATED_DRUG
+    pid = client.get("/api/doctor/patients", headers=auth(doctor_token)).json()[0]["id"]
+    with SessionLocal() as db:
+        db.add(Diagnosis(patient_id=uuid.UUID(pid), icd10="F32.1", title="Депрессивный эпизод средней степени"))
+        db.commit()
+    url = f"/api/doctor/patients/{pid}/prescriptions"
+
+    warnings = client.post(url + "/check", json=RX, headers=auth(doctor_token)).json()["warnings"]
+    w = warnings[0]
+    assert (w["id"], w["kind"], w["status"]) == (OFF_LABEL_ID, "off_label", "fired")
+    assert w["sources"] == ["grls_aviandr"] and w["indications"][1]["icd10"] == ["F43.2", "U09.9"]
+
+    others = [x["id"] for x in warnings if x["id"] != OFF_LABEL_ID]
+    assert client.post(url, json=RX | {"acknowledged_warnings": others},
+                       headers=auth(doctor_token)).status_code == 409, "пункт «вне показаний» врач отмечает"
+    r = client.post(url, json=RX | {"acknowledged_warnings": [x["id"] for x in warnings]}, headers=auth(doctor_token))
+    assert r.status_code == 200, "обоснование не нужно: " + r.text
+    with SessionLocal() as db:
+        entry = db.scalar(select(AuditLog).where(AuditLog.action == "prescription.created"))
+    assert {"id": OFF_LABEL_ID, "kind": "off_label", "status": "fired"} in entry.data["warnings"]
+
+
+def test_second_active_prescription_is_rejected(client, doctor_token, patient_token, kb_with_testdrug):
+    pid = client.get("/api/doctor/patients", headers=auth(doctor_token)).json()[0]["id"]
+    url = f"/api/doctor/patients/{pid}/prescriptions"
+
+    def prescribe():
+        result = client.post(url + "/check", json=RX, headers=auth(doctor_token)).json()
+        acked = RX | {"acknowledged_warnings": [w["id"] for w in result["warnings"]]}
+        return result, client.post(url, json=acked, headers=auth(doctor_token))
+
+    result, first = prescribe()
+    assert result["already_prescribed"] is None and first.status_code == 200, first.text
+
+    result, again = prescribe()
+    assert result["already_prescribed"]["id"] == first.json()["id"], "проверка сразу говорит, что препарат назначен"
+    assert result["warnings"] == [] and "уже назначен с" in result["notice_ru"]
+    assert again.status_code == 409 and "уже назначен" in again.json()["detail"]
+    with SessionLocal() as db:
+        assert len(db.scalars(select(Prescription).where(Prescription.drug_id == "testdrug")).all()) == 1
+
+    kb_with_testdrug.drugs["otherdrug"] = TEST_DRUG.model_copy(update={"id": "otherdrug", "trade_name": "Другоцин"})
+    other = client.post(url + "/check", json={"drug_id": "otherdrug", "drug_name": "Другоцин"},
+                        headers=auth(doctor_token))
+    assert other.json()["already_prescribed"] is None, "другой препарат назначению не мешает"
+
+    assert client.post(f"/api/doctor/prescriptions/{first.json()['id']}/stop",
+                       headers=auth(doctor_token)).status_code == 200
+    result, renewed = prescribe()
+    assert result["already_prescribed"] is None and result["warnings"], "после отмены — снова обычная проверка"
+    assert renewed.status_code == 200, renewed.text
 
 
 def test_drug_without_instruction_data_says_so(client, doctor_token, patient_token, kb_with_testdrug):

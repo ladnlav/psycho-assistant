@@ -142,15 +142,23 @@ class LabValue(BaseModel):
     taken_on: date | None = None
 
 
+class IndicationOut(BaseModel):
+    """Показание из инструкции (kb/drugs, indications): несколько кодов — в карточке должны быть все."""
+    text_ru: str
+    icd10: list[str]
+
+
 class DrugWarning(BaseModel):
     id: str
-    kind: Literal["contraindication", "caution", "interaction"]
+    # off_label — ни одно показание инструкции не подтверждено диагнозами карточки; уровень «с осторожностью»
+    kind: Literal["contraindication", "caution", "interaction", "off_label"]
     status: Literal["fired", "manual", "unchecked"]  # найдено в карточке | проверить вручную | нет данных
     text_ru: str
     section_ru: str
     detail_ru: str | None = None
     check_ru: str | None = None  # чем подтвердить или исключить пункт: анализы, осмотр (kb/drugs)
     labs: list[LabValue] = []  # анализы из карточки, которые относятся к пункту (lab() и labs в kb/drugs)
+    indications: list[IndicationOut] = []  # только у off_label: показания из инструкции
     requires_reason: bool = False
     sources: list[str] = []
 
@@ -163,13 +171,6 @@ class Dosing(BaseModel):
     schedule_ru: str | None = None
 
 
-class PrescriptionCheck(BaseModel):
-    checked: bool
-    notice_ru: str | None = None
-    warnings: list[DrugWarning] = []
-    dosing: Dosing | None = None
-
-
 class PrescriptionOut(ORM):
     id: uuid.UUID
     drug_id: str | None
@@ -179,6 +180,15 @@ class PrescriptionOut(ORM):
     start_date: date
     end_date: date | None = None  # когда назначение закончилось или врач его отменил
     active: bool
+
+
+class PrescriptionCheck(BaseModel):
+    checked: bool
+    notice_ru: str | None = None
+    warnings: list[DrugWarning] = []
+    dosing: Dosing | None = None
+    # Активное назначение того же препарата: повторно назначить нельзя, пока врач не отменит это.
+    already_prescribed: PrescriptionOut | None = None
 
 
 class PrescriptionStop(BaseModel):

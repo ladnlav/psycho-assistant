@@ -1,8 +1,10 @@
-"""Проверка назначения по инструкции из kb/drugs: противопоказания, «с осторожностью», взаимодействия.
+"""Проверка назначения по инструкции из kb/drugs: показания, противопоказания, «с осторожностью», взаимодействия.
 
 Система ничего не запрещает: она показывает врачу пункты инструкции, а решение и обоснование остаются за ним.
 Пункт без `when` врач проверяет сам; пункт, для которого в карточке нет данных, тоже уходит врачу.
 Анализа нет в карточке — lab() не срабатывает, и пункт с ask остаётся «проверьте у пациента».
+Если ни одно показание не подтверждено диагнозами карточки, врач видит пункт «вне показаний» уровня «с осторожностью».
+Единственный запрет — второе активное назначение того же препарата: сначала врач отменяет первое.
 """
 
 import ast
@@ -14,9 +16,10 @@ from simpleeval import SimpleEval
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.kb import Drug, DrugCheck, KnowledgeBase
+from app.kb import OFF_LABEL_ID, Drug, DrugCheck, KnowledgeBase
 from app.models import Diagnosis, LabResult, PatientProfile, Prescription, utcnow
-from app.schemas import Dosing, DrugWarning, LabValue, PrescriptionCheck, PrescriptionIn
+from app.schemas import (Dosing, DrugWarning, IndicationOut, LabValue, PrescriptionCheck, PrescriptionIn,
+                         PrescriptionOut)
 
 SECTION_RU = {
     "contraindication": "Противопоказания",
@@ -90,12 +93,16 @@ def _norm_code(code: str) -> str:
     return code.upper().replace(" ", "")
 
 
+def _dx(diagnoses: list[str], *prefixes: str) -> bool:
+    """Есть диагноз, код которого начинается с одного из префиксов МКБ-10."""
+    return any(_norm_code(c).startswith(_norm_code(p)) for c in diagnoses for p in prefixes)
+
+
 def _evaluator(facts: PatientFacts) -> SimpleEval:
-    codes = [_norm_code(c) for c in facts.diagnoses]
     return SimpleEval(
         names={"age": facts.age, "sex": facts.sex},
         functions={
-            "dx": lambda *prefixes: any(c.startswith(_norm_code(p)) for c in codes for p in prefixes),
+            "dx": lambda *prefixes: _dx(facts.diagnoses, *prefixes),
             "taking": lambda *names: any(n.lower() in m for m in facts.medications for n in names),
             "lab": lambda analyte: facts.labs[analyte].value if analyte in facts.labs else NO_RESULT,
         },
@@ -146,12 +153,27 @@ def _evaluate(item: DrugCheck, facts: PatientFacts) -> tuple[str, str | None] | 
     return ("manual", None) if _should_ask(item, facts) else None
 
 
+def off_label(drug: Drug, facts: PatientFacts, sources: list[str]) -> DrugWarning | None:
+    """«Вне показаний»: ни одно показание инструкции не подтверждено диагнозами карточки. Показание из нескольких
+    кодов подтверждено, только если в карточке есть все; сравнение по префиксу, как dx(). Показаний в kb нет —
+    проверки нет. Уровень — «с осторожностью»: врач отмечает пункт, обоснование не нужно."""
+    if not drug.indications or any(all(_dx(facts.diagnoses, c) for c in i.codes) for i in drug.indications):
+        return None
+    codes = list(dict.fromkeys(facts.diagnoses))
+    return DrugWarning(
+        id=OFF_LABEL_ID, kind="off_label", status="fired" if codes else "unchecked",
+        text_ru="Назначение вне зарегистрированных показаний", section_ru="Показания к применению",
+        detail_ru=f"в карточке {', '.join(codes)}" if codes else "диагнозы не внесены",
+        indications=[IndicationOut(text_ru=i.text, icd10=i.codes) for i in drug.indications], sources=sources,
+    )
+
+
 def check(drug: Drug, facts: PatientFacts, sources: list[str] | None = None,
           kb: KnowledgeBase | None = None) -> list[DrugWarning]:
     """`sources` — на что ссылается каждый пункт; по умолчанию все источники препарата.
     `kb` — названия и единицы анализов, которых нет в карточке."""
     sources = drug.sources if sources is None else sources
-    out = []
+    out = [w] if (w := off_label(drug, facts, sources)) else []  # показания — первый раздел инструкции
     groups = (("contraindication", drug.contraindications), ("caution", drug.caution),
               ("interaction", drug.interactions))
     for kind, items in groups:
@@ -184,10 +206,24 @@ def dosing(drug: Drug) -> Dosing | None:
                   frequency_ru=_times_per_day_ru(int(d["times_per_day"])), schedule_ru=d.get("schedule_ru"))
 
 
+def active_prescription(db: Session, patient_id: uuid.UUID, drug_id: str) -> Prescription | None:
+    return db.scalar(select(Prescription).where(
+        Prescription.patient_id == patient_id, Prescription.drug_id == drug_id, Prescription.active.is_(True))
+        .order_by(Prescription.start_date.desc(), Prescription.created_at.desc()).limit(1))
+
+
+def already_prescribed_ru(rx: Prescription) -> str:
+    return (f"Препарат «{rx.drug_name}» уже назначен с {rx.start_date:%d.%m.%Y}. Повторно назначить нельзя: "
+            "чтобы изменить дозу или режим, сначала отмените текущее назначение")
+
+
 def check_prescription(db: Session, kb: KnowledgeBase, patient_id: uuid.UUID, body: PrescriptionIn) -> PrescriptionCheck:
     if body.drug_id is None:
         return PrescriptionCheck(checked=False, notice_ru="Препарата нет в базе знаний — инструкция не проверялась")
     drug = kb.drugs[body.drug_id]
+    if rx := active_prescription(db, patient_id, drug.id):
+        return PrescriptionCheck(checked=False, notice_ru=already_prescribed_ru(rx),
+                                 already_prescribed=PrescriptionOut.model_validate(rx))
     if not drug.has_checks:
         return PrescriptionCheck(
             checked=False, notice_ru="Данные инструкции из ГРЛС ещё не внесены — противопоказания не проверены",

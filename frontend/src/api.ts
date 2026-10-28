@@ -51,16 +51,22 @@ export interface Prescription {
 export interface Intake { id: string; prescription_id: string; day: string; status: 'taken' | 'missed' }
 /** Последнее значение анализа из карточки рядом с пунктом инструкции; value null — результата нет. */
 export interface LabValue { analyte: string; title_ru: string; unit: string | null; value: number | null; taken_on: string | null }
+/** Показание из инструкции (kb/drugs, indications): несколько кодов — в карточке должны быть все. */
+export interface IndicationRef { text_ru: string; icd10: string[] }
 export interface DrugWarning {
-  id: string; kind: 'contraindication' | 'caution' | 'interaction'; status: 'fired' | 'manual' | 'unchecked';
+  id: string; status: 'fired' | 'manual' | 'unchecked';
+  // off_label — ни одно показание инструкции не подтверждено диагнозами карточки; уровень «с осторожностью»
+  kind: 'contraindication' | 'caution' | 'interaction' | 'off_label';
   text_ru: string; section_ru: string; detail_ru: string | null; check_ru: string | null; requires_reason: boolean;
   labs: LabValue[]; // анализы из карточки, которые относятся к пункту (lab() и labs в kb/drugs)
+  indications: IndicationRef[]; // только у off_label: показания из инструкции
   sources: string[];
 }
 /** Режим дозирования из инструкции (kb/drugs, dosing) — значения по умолчанию в форме назначения. */
 export interface Dosing { single_mg: number; times_per_day: number; frequency_ru: string; schedule_ru: string | null }
 export interface PrescriptionCheck {
   checked: boolean; notice_ru: string | null; warnings: DrugWarning[]; dosing: Dosing | null;
+  already_prescribed: Prescription | null; // активное назначение того же препарата: повторно назначить нельзя
 }
 
 export interface Alert {

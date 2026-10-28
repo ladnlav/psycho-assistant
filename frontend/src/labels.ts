@@ -35,6 +35,7 @@ export const DRUG_WARNING_KIND: Record<DrugWarning['kind'], { label: string; col
   contraindication: { label: 'Противопоказание', color: 'red' },
   caution: { label: 'С осторожностью', color: 'orange' },
   interaction: { label: 'Взаимодействие', color: 'grape' },
+  off_label: { label: 'Вне показаний', color: 'orange' }, // уровень «с осторожностью»: отметить, обоснование не нужно
 };
 
 export const DRUG_WARNING_STATUS: Record<DrugWarning['status'], string> = {
@@ -42,6 +43,18 @@ export const DRUG_WARNING_STATUS: Record<DrugWarning['status'], string> = {
   unchecked: 'Не хватает данных',
   manual: 'Проверьте у пациента',
 };
+
+/** Строка статуса пункта. «Вне показаний» срабатывает не на находку, а на то, чего в карточке нет. */
+export function drugWarningStatus(w: DrugWarning): string {
+  const status = w.kind === 'off_label' && w.status === 'fired'
+    ? 'Показание не подтверждено' : DRUG_WARNING_STATUS[w.status];
+  return w.detail_ru ? `${status}: ${w.detail_ru}` : status;
+}
+
+/** «F41.1» или «F41.1 и U09.9 вместе» — показание из нескольких кодов подтверждают все коды сразу. */
+export function indicationCodes(codes: string[]): string {
+  return codes.length > 1 ? `${codes.join(' и ')} вместе` : codes.join('');
+}
 
 /** Откуда диагноз и результат анализа. */
 export const DIAGNOSIS_SOURCE: Record<DiagnosisSource, string> = {
